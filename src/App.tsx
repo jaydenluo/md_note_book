@@ -209,9 +209,9 @@ function App() {
         <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300">
           <Share className="h-4 w-4" />
         </button>
-        <button
+          <button
           className="flex items-center justify-center p-2 ml-auto bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
-          onClick={toggleTheme}
+            onClick={toggleTheme}
         >
           <Settings className="h-4 w-4" />
         </button>
@@ -405,23 +405,23 @@ function App() {
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
         {/* 顶部导航栏 - 固定在顶部 */}
         <div className="fixed top-0 left-0 right-0 h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 z-10">
-          <button 
-            className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
+            <button 
+              className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
             <Menu className="h-5 w-5" />
-          </button>
-          <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
-          <button 
-            className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded"
-            onClick={() => {
-              console.log('当前状态:', { tabs, activeTabId, selectedNoteId });
-            }}
-          >
-            调试
-          </button>
-        </div>
-        
+            </button>
+            <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
+            <button 
+              className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded"
+              onClick={() => {
+                console.log('当前状态:', { tabs, activeTabId, selectedNoteId });
+              }}
+            >
+              调试
+            </button>
+          </div>
+          
         {/* 内容区域 - 添加顶部边距避开导航栏 */}
         <div className="flex w-full mt-12">
           {/* 侧边栏 */}
@@ -442,21 +442,21 @@ function App() {
           
           {/* 主内容区 */}
           <div className="flex flex-1 h-[calc(100vh-48px)]">
-            {/* 笔记列表 */}
-            <ResizablePanel
+          {/* 笔记列表 */}
+          <ResizablePanel
               id="note-list-panel"
-              defaultWidth={280}
-              minWidth={220}
+            defaultWidth={280}
+            minWidth={220}
               maxWidth={500}
               direction="right"
               className="border-r border-gray-200 dark:border-gray-700"
-            >
-              {renderNoteList()}
-            </ResizablePanel>
-            
-            {/* 笔记内容 */}
+          >
+            {renderNoteList()}
+          </ResizablePanel>
+          
+          {/* 笔记内容 */}
             <div className="flex-1">
-              {renderNoteContent()}
+            {renderNoteContent()}
             </div>
           </div>
         </div>

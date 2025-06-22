@@ -14,6 +14,7 @@ import { cn } from '@utils/cn'
 import { ResizablePanel } from './ui/ResizablePanel'
 import MarkdownPreview from './MarkdownPreview'
 import React from 'react'
+import RemirrorMarkdownEditor from './RemirrorMarkdownEditor'
 
 // 定义热键回调接口
 interface HotkeyCallback {
@@ -150,6 +151,13 @@ interface OutlineItem {
   line?: number;
 }
 
+// 编辑模式类型
+const EDIT_MODES = [
+  { key: 'source', label: '源码' },
+  { key: 'wysiwyg', label: '所见即所得' },
+  { key: 'remirror', label: 'Remirror' },
+]
+
 const Editor = ({ noteId }: EditorProps): JSX.Element => {
   const [isPreview, setIsPreview] = useState(false)
   const [isSplitView, setIsSplitView] = useState(false)
@@ -165,7 +173,7 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [localTitle, setLocalTitle] = useState('');
   const [localContent, setLocalContent] = useState('');
-  const [isWysiwygMode, setIsWysiwygMode] = useState(false);
+  const [editMode, setEditMode] = useState<'source' | 'wysiwyg' | 'remirror'>('source');
 
   const note = useNotes(state => 
     noteId ? state.notes.find(n => n.id === noteId) : null
@@ -200,9 +208,9 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
         }
         
         const result = await updateNote(id, data);
-        
-        // 如果更新了标题，同时更新标签页标题
-        if (data.title && tab) {
+      
+      // 如果更新了标题，同时更新标签页标题
+      if (data.title && tab) {
           updateTabTitle(tab.id, data.title);
         }
         
@@ -261,7 +269,7 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
     // 保存到服务器
     debouncedSave(note.id, { title: newTitle });
   };
-  
+
   // 修改内容变更处理
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!note) return;
@@ -566,15 +574,15 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
             {/* 所见即所得按钮 */}
             <button
               onClick={() => {
-                setIsWysiwygMode(!isWysiwygMode);
+                setEditMode('wysiwyg');
                 // 切换为所见即所得模式时需要关闭预览和分屏模式
-                if (!isWysiwygMode) {
+                if (editMode !== 'wysiwyg') {
                   setIsPreview(false);
                   setIsSplitView(false);
                 }
               }}
               className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                isWysiwygMode ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'
+                editMode === 'wysiwyg' ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'
               }`}
               title="所见即所得编辑"
             >
@@ -586,7 +594,7 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
             
             {/* 标签按钮 */}
             <button
-              onClick={() => setIsTagSelectorOpen(!isTagSelectorOpen)}
+            onClick={() => setIsTagSelectorOpen(!isTagSelectorOpen)}
               className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
               title="标签"
             >
@@ -656,70 +664,92 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
         <div className="flex flex-col flex-1 min-h-0">
           {/* 标题输入 - 固定高度 */}
           <div className="flex-none px-4 py-3 border-b dark:border-gray-700">
-            <input
-              ref={titleRef}
-              type="text"
+        <input
+          ref={titleRef}
+          type="text"
               value={localTitle}
-              onChange={handleTitleChange}
-              placeholder="笔记标题"
-              className="w-full text-xl font-semibold border-none focus:outline-none focus:ring-0 bg-transparent dark:text-white"
-            />
-            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-              <span>
-                {new Date(note.updatedAt).toLocaleString()} · {note.content.length} 字符
-              </span>
-              <span className="mx-2">·</span>
-              <span>{category ? category.name : '未分类'}</span>
-              {isSaving && (
-                <span className="ml-2 flex items-center text-blue-500">
-                  <svg className="w-3 h-3 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  保存中...
-                </span>
-              )}
-            </div>
-          </div>
-
+          onChange={handleTitleChange}
+          placeholder="笔记标题"
+          className="w-full text-xl font-semibold border-none focus:outline-none focus:ring-0 bg-transparent dark:text-white"
+        />
+        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            {new Date(note.updatedAt).toLocaleString()} · {note.content.length} 字符
+          </span>
+          <span className="mx-2">·</span>
+          <span>{category ? category.name : '未分类'}</span>
+          {isSaving && (
+            <span className="ml-2 flex items-center text-blue-500">
+              <svg className="w-3 h-3 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              保存中...
+            </span>
+          )}
+        </div>
+      </div>
+      
           {/* 内容区域 - 使用flex-1和min-h-0确保正确计算高度 */}
           <div className="flex flex-1 min-h-0 overflow-hidden">
-            {/* 编辑/预览区域 */}
+        {/* 编辑/预览区域 */}
             <div className={`flex flex-1 min-h-0 ${isSplitView ? 'space-x-4' : ''}`}>
-              {/* 编辑区域 */}
-              {!isPreview && (
+          {/* 编辑区域 */}
+          {!isPreview && (
                 <div className={`${isSplitView ? 'w-1/2' : 'w-full'} min-h-0 flex-1 overflow-auto`}>
-                  {isWysiwygMode ? (
+                  {/* 编辑模式切换按钮 */}
+                  <div className="flex space-x-2 mb-2">
+                    {EDIT_MODES.map(m => (
+                      <button
+                        key={m.key}
+                        onClick={() => setEditMode(m.key as any)}
+                        className={`px-2 py-1 rounded ${editMode === m.key ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* 根据模式渲染不同编辑器 */}
+                  {editMode === 'wysiwyg' ? (
                     <div className="h-full">
                       {note && React.createElement(WysiwygMarkdownEditor, {
                         content: localContent,
                         onChange: (newContent: string) => {
                           if (!note) return;
-                          
                           setLocalContent(newContent);
-                          
-                          // 更新渲染状态
                           updateRenderedContent(newContent);
-                          
-                          // 保存到服务器
                           debouncedSave(note.id, { content: newContent });
                         }
                       })}
                     </div>
+                  ) : editMode === 'remirror' ? (
+                    <div className="h-full">
+                      {note && (
+                        <RemirrorMarkdownEditor
+                          value={localContent}
+                          onChange={(newContent: string) => {
+                            setLocalContent(newContent);
+                            updateRenderedContent(newContent);
+                            debouncedSave(note.id, { content: newContent });
+                          }}
+                          className="h-full"
+                        />
+                      )}
+                    </div>
                   ) : (
-                    <textarea
-                      ref={contentRef}
+              <textarea
+                ref={contentRef}
                       value={localContent}
-                      onChange={handleContentChange}
-                      className="w-full h-full p-4 border-none resize-none focus:outline-none focus:ring-0 bg-white dark:bg-gray-800 dark:text-white font-mono"
-                      placeholder="开始编写笔记..."
+                onChange={handleContentChange}
+                className="w-full h-full p-4 border-none resize-none focus:outline-none focus:ring-0 bg-white dark:bg-gray-800 dark:text-white font-mono"
+                placeholder="开始编写笔记..."
                       style={{ height: "100%" }}
-                    />
+              />
                   )}
-                </div>
-              )}
-
-              {/* 预览区域 */}
-              {(isPreview || isSplitView) && (
+            </div>
+          )}
+          
+          {/* 预览区域 */}
+          {(isPreview || isSplitView) && (
                 <div className={`${isSplitView ? 'w-1/2' : 'w-full'} min-h-0 flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none`}>
                   {React.createElement(MarkdownPreview, {
                     content: renderedContent,
@@ -777,7 +807,7 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
             </div>
           </div>
         </div>
-
+        
         {/* 右侧大纲区域 */}
         {showOutline && (
           <ResizablePanel
@@ -830,7 +860,7 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
           />
         )}
       </AnimatePresence>
-
+      
       {/* 隐藏的文件输入 */}
       <input
         ref={fileInputRef}

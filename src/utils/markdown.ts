@@ -112,7 +112,7 @@ fullMd.use(container, 'info', {
       }
     }
   })
-})
+}) 
 
 // 渲染缓存，避免重复渲染相同的内容
 const renderCache = new Map<string, string>();
@@ -220,8 +220,8 @@ export function renderMarkdown(content: string, isRealtime: boolean = false): st
   
   // 只有在完整渲染模式下才初始化mermaid图表
   if (!isRealtime) {
-    setTimeout(() => {
-      try {
+  setTimeout(() => {
+    try {
         // 只初始化新的mermaid元素
         const elements = document.querySelectorAll('.mermaid:not([data-processed="true"])') as NodeListOf<HTMLElement>;
         if (elements.length > 0) {
@@ -229,9 +229,9 @@ export function renderMarkdown(content: string, isRealtime: boolean = false): st
           // 标记已处理的元素
           elements.forEach(el => el.setAttribute('data-processed', 'true'));
         }
-      } catch (e) {
+    } catch (e) {
         console.error('Mermaid初始化失败:', e);
-      }
+    }
     }, 0);
   }
   
@@ -241,7 +241,7 @@ export function renderMarkdown(content: string, isRealtime: boolean = false): st
 // 清除渲染缓存
 export function clearMarkdownCache() {
   renderCache.clear();
-}
+} 
 
 // 导出markdown实例
 export { md } 

@@ -21,7 +21,7 @@ const WysiwygMarkdownEditor: React.FC<WysiwygMarkdownEditorProps> = ({ content, 
   // 初始化内容，仅在组件挂载或content显著变化时更新
   useEffect(() => {
     if (content !== editingContent) {
-      setEditingContent(content);
+    setEditingContent(content);
     }
   }, [content]);
   
@@ -143,7 +143,7 @@ const WysiwygMarkdownEditor: React.FC<WysiwygMarkdownEditorProps> = ({ content, 
     
     return () => {
       editorElement.removeEventListener('scroll', handleScroll);
-    };
+  };
   }, [contentLines.length]);
   
   // 优化：当行数过多时，仅渲染可见区域附近的行

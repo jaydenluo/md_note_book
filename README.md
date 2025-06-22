@@ -105,3 +105,6 @@ macOS 需要安装 Xcode Command Line Tools
 底部状态栏  右侧大纲区域 的颜色 需要调整与主界面一致，请检查
 
  分类列表   笔记列表 文档大纲 宽度 设计为可拖动调整，并保存，退出时也不清空
+
+
+ @WysiwygMarkdownEditor.tsx  加强这个功能 ，帮我好好想一想怎么写文档会更好用 

@@ -281,4 +281,4 @@ export const TabManager = ({
       </button>
     </div>
   );
-}; 
+};
