@@ -9,7 +9,7 @@ interface NoteTabProps {
   noteId: string;
 }
 
-export const NoteTab: React.FC<NoteTabProps> = ({ noteId }) => {
+export const NoteTab = ({ noteId }: NoteTabProps): JSX.Element => {
   const [isSaving, setIsSaving] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 

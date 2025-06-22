@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { storage } from '@services/storage'
 import { useCategories } from '@stores/categoryStore'
@@ -12,20 +13,8 @@ import { TabManager } from './components/TabManager'
 import { NoteTab } from './components/NoteTab'
 import { ResizablePanel } from './components/ui/ResizablePanel'
 
-// Lucide 图标
-import {
-  Menu,
-  Search,
-  Star,
-  Clock,
-  Share,
-  Settings,
-  Plus,
-  FileText,
-  Loader2,
-  X,
-  ChevronDown
-} from 'lucide-react'
+// Lucide 图标组件
+import { Menu, Search, Star, Clock, Share, Settings, Plus, FileText } from 'lucide-react'
 
 function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
@@ -197,7 +186,7 @@ function App() {
       <div className="p-3 border-b border-gray-200 dark:border-gray-700">
         <div className="relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <Search size={16} />
+            <Search className="h-4 w-4" />
           </div>
           <input
             type="text"
@@ -212,19 +201,19 @@ function App() {
       {/* 操作按钮 */}
       <div className="flex p-3 border-b border-gray-200 dark:border-gray-700">
         <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2 text-gray-600 dark:text-gray-300">
-          <Star size={16} />
+          <Star className="h-4 w-4" />
         </button>
         <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2 text-gray-600 dark:text-gray-300">
-          <Clock size={16} />
+          <Clock className="h-4 w-4" />
         </button>
         <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300">
-          <Share size={16} />
+          <Share className="h-4 w-4" />
         </button>
-          <button
+        <button
           className="flex items-center justify-center p-2 ml-auto bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
-            onClick={toggleTheme}
+          onClick={toggleTheme}
         >
-          <Settings size={16} />
+          <Settings className="h-4 w-4" />
         </button>
       </div>
       
@@ -236,7 +225,7 @@ function App() {
             onClick={() => setIsCreatingCategory(true)}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           >
-            <Plus size={16} />
+            <Plus className="h-4 w-4" />
           </button>
         </div>
         
@@ -280,7 +269,7 @@ function App() {
               }`}
             >
               <div className="flex items-center">
-                <FileText size={16} className="mr-2" />
+                <FileText className="h-4 w-4 mr-2" />
                 <span className="truncate">{category.name}</span>
               </div>
               <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-full">
@@ -307,7 +296,7 @@ function App() {
           onClick={handleCreateNote}
           className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
         >
-          <Plus size={16} />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
       
@@ -370,7 +359,7 @@ function App() {
             onClick={handleCreateNote}
             className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           >
-            <Plus size={16} />
+            <Plus className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -378,7 +367,7 @@ function App() {
       {/* 笔记内容 */}
       <div className="flex-1 overflow-hidden">
         {selectedNoteId ? (
-          <NoteTab noteId={selectedNoteId} />
+          <NoteTab noteId={selectedNoteId} key={selectedNoteId} />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
             <h2 className="text-xl font-medium mb-2">选择或创建一个笔记</h2>
@@ -389,7 +378,7 @@ function App() {
               className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center"
               onClick={handleCreateNote}
             >
-              <Plus size={16} className="mr-2" />
+              <Plus className="h-4 w-4 mr-2" />
               创建新笔记
             </button>
           </div>
@@ -414,56 +403,47 @@ function App() {
   if (!isMobileView) {
     return (
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-        {/* 侧边栏 */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <ResizablePanel
-              id="sidebar"
-              defaultWidth={250}
-              minWidth={180}
-              maxWidth={350}
-              className="h-full border-r border-gray-200 dark:border-gray-700"
-            >
-              {renderSidebar()}
-            </ResizablePanel>
-          )}
-        </AnimatePresence>
-        
-        {/* 主内容区 */}
-        <div className="flex flex-1 h-full">
-          {/* 顶部导航栏 */}
-          <div className="absolute top-0 left-0 right-0 h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 z-10">
-            <button 
-              className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <Menu size={20} />
-            </button>
-            <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
-            <button 
-              className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded"
-              onClick={() => {
-                console.log('当前状态:', { tabs, activeTabId, selectedNoteId });
-              }}
-            >
-              调试
-            </button>
-          </div>
-          
-          {/* 笔记列表 */}
-          <ResizablePanel
-            id="note-list"
-            defaultWidth={280}
-            minWidth={220}
-            maxWidth={400}
-            className="mt-12 border-r border-gray-200 dark:border-gray-700"
+        {/* 顶部导航栏 - 固定在顶部 */}
+        <div className="fixed top-0 left-0 right-0 h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 z-10">
+          <button 
+            className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
           >
-            {renderNoteList()}
-          </ResizablePanel>
+            <Menu className="h-5 w-5" />
+          </button>
+          <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
+          <button 
+            className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded"
+            onClick={() => {
+              console.log('当前状态:', { tabs, activeTabId, selectedNoteId });
+            }}
+          >
+            调试
+          </button>
+        </div>
+        
+        {/* 内容区域 - 添加顶部边距避开导航栏 */}
+        <div className="flex w-full mt-12">
+          {/* 侧边栏 */}
+          <AnimatePresence>
+            {sidebarOpen && (
+              <div className="h-[calc(100vh-48px)] border-r border-gray-200 dark:border-gray-700 w-[250px] min-w-[180px] max-w-[350px] relative">
+                {renderSidebar()}
+              </div>
+            )}
+          </AnimatePresence>
           
-          {/* 笔记内容 */}
-          <div className="flex-1 mt-12">
-            {renderNoteContent()}
+          {/* 主内容区 */}
+          <div className="flex flex-1 h-[calc(100vh-48px)]">
+            {/* 笔记列表 */}
+            <div className="w-[280px] min-w-[220px] max-w-[400px] border-r border-gray-200 dark:border-gray-700">
+              {renderNoteList()}
+            </div>
+            
+            {/* 笔记内容 */}
+            <div className="flex-1">
+              {renderNoteContent()}
+            </div>
           </div>
         </div>
       </div>
@@ -479,7 +459,7 @@ function App() {
           className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           onClick={() => setSidebarOpen(true)}
         >
-          <Menu size={20} />
+          <Menu className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
       </header>
@@ -515,7 +495,7 @@ function App() {
         {/* 内容区域 */}
         {selectedNoteId ? (
           <div className="flex-1 overflow-hidden">
-            <NoteTab noteId={selectedNoteId} />
+            <NoteTab noteId={selectedNoteId} key={selectedNoteId} />
           </div>
         ) : (
           renderNoteList()

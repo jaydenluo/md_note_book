@@ -141,7 +141,7 @@ interface OutlineItem {
   position: number
 }
 
-const Editor = ({ noteId }: EditorProps) => {
+const Editor = ({ noteId }: EditorProps): JSX.Element => {
   const [isPreview, setIsPreview] = useState(false)
   const [isSplitView, setIsSplitView] = useState(false)
   const [isSaving, setIsSaving] = useState(false)

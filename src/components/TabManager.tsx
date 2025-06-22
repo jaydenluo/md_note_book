@@ -18,13 +18,13 @@ interface TabManagerProps {
   onTabCloseAll: () => void;
 }
 
-const TabManager = ({
+export const TabManager = ({
   activeTabId,
   onTabChange,
   onTabClose,
   onTabCloseOthers,
   onTabCloseAll
-}: TabManagerProps) => {
+}: TabManagerProps): JSX.Element => {
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -281,6 +281,4 @@ const TabManager = ({
       </button>
     </div>
   );
-};
-
-export { TabManager }; 
+}; 
