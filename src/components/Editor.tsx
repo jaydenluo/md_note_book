@@ -12,6 +12,14 @@ import { useHotkeys } from '@hooks/useHotkeys'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@utils/cn'
 import { ResizablePanel } from './ui/ResizablePanel'
+import MarkdownPreview from './MarkdownPreview'
+import React from 'react'
+
+// 定义热键回调接口
+interface HotkeyCallback {
+  combo: string;
+  callback: () => void;
+}
 
 interface EditorProps {
   noteId: string | null
@@ -135,10 +143,11 @@ const toolbarItems = [
 
 // 大纲项接口
 interface OutlineItem {
-  id: string
-  level: number
-  text: string
-  position: number
+  id?: string;
+  level: number;
+  text: string;
+  position: number;
+  line?: number;
 }
 
 const Editor = ({ noteId }: EditorProps): JSX.Element => {
@@ -154,6 +163,9 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
   const titleRef = useRef<HTMLInputElement>(null)
   const contentRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [localTitle, setLocalTitle] = useState('');
+  const [localContent, setLocalContent] = useState('');
+  const [isWysiwygMode, setIsWysiwygMode] = useState(false);
 
   const note = useNotes(state => 
     noteId ? state.notes.find(n => n.id === noteId) : null
@@ -175,62 +187,118 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
     ? categories.find(c => c.id === note.categoryId) 
     : null
 
-  // 保存笔记的防抖函数
+  // 创建更高效的防抖保存机制
   const debouncedSave = useRef(
     debounce(async (id: string, data: { title?: string; content?: string }) => {
-      setIsSaving(true)
-      await updateNote(id, data)
+      // 只在保存开始时设置一次isSaving状态，避免频繁状态更新
+      let shouldSetSaving = true;
       
-      // 如果更新了标题，同时更新标签页标题
-      if (data.title && tab) {
-        updateTabTitle(tab.id, data.title)
+      try {
+        // 仅在长内容或标题变更时才显示保存状态
+        if (shouldSetSaving && (data.content?.length ?? 0) > 100 || data.title) {
+          setIsSaving(true);
+        }
+        
+        const result = await updateNote(id, data);
+        
+        // 如果更新了标题，同时更新标签页标题
+        if (data.title && tab) {
+          updateTabTitle(tab.id, data.title);
+        }
+        
+        return result;
+      } finally {
+        // 使用setTimeout避免快速输入时的状态反复切换
+        setTimeout(() => {
+          if (shouldSetSaving) {
+            setIsSaving(false);
+          }
+        }, 300);
       }
-      
-      setTimeout(() => setIsSaving(false), 500)
+    // 增加防抖延迟，减少保存次数
+    }, 800)
+  ).current;
+
+  // 提取大纲的防抖函数
+  const debouncedExtractOutline = useRef(
+    debounce((content: string) => {
+      extractOutline(content)
     }, 500)
   ).current
 
-  // 处理标题变更
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (note) {
-      const newTitle = e.target.value
-      debouncedSave(note.id, { title: newTitle })
-    }
-  }
+  // 渲染Markdown的防抖函数
+  const debouncedRender = useRef(
+    debounce((content: string) => {
+      setRenderedContent(md.render(content))
+    }, 300)
+  ).current
 
-  // 处理内容变更
+  // 当笔记变化时，直接初始化本地状态
+  useEffect(() => {
+    if (!note) return;
+    
+    // 直接加载原始数据
+    setLocalTitle(note.title);
+    setLocalContent(note.content);
+    
+    // 渲染内容
+    const rendered = md.render(note.content);
+    setRenderedContent(rendered);
+    
+    // 提取大纲
+    const newOutline = extractOutline(note.content);
+    setOutlineItems(newOutline);
+    
+  }, [note?.id]); // 只在笔记ID变更时执行，这样切换回已打开的笔记不会重新加载
+
+  // 修改标题变更处理
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!note) return;
+    
+    const newTitle = e.target.value;
+    setLocalTitle(newTitle);
+    
+    // 保存到服务器
+    debouncedSave(note.id, { title: newTitle });
+  };
+  
+  // 修改内容变更处理
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (note) {
-      const newContent = e.target.value
-      debouncedSave(note.id, { content: newContent })
+    if (!note) return;
+    
+    const newContent = e.target.value;
+    setLocalContent(newContent);
+    
+    // 更新渲染状态
+    updateRenderedContent(newContent);
+    
+    // 保存到服务器
+    debouncedSave(note.id, { content: newContent });
+  };
+  
+  // 更新渲染内容的辅助函数
+  const updateRenderedContent = (content: string) => {
+    if (!note) return;
+    
+    // 仅在预览模式下更新渲染内容
+    if (isPreview || isSplitView) {
+      let rendered;
       
-      // 更新预览内容
-      if (isPreview || isSplitView) {
-        setRenderedContent(md.render(newContent))
+      if (content.length < 500) {
+        // 使用轻量级渲染提高性能
+        rendered = md.renderRealtime ? md.renderRealtime(content) : md.render(content);
+      } else {
+        // 长文档使用防抖渲染
+        rendered = md.render(content);
       }
       
-      // 更新大纲
-      extractOutline(newContent)
-    }
-  }
-
-  // 提取大纲
-  const extractOutline = (content: string) => {
-    const headingRegex = /^(#{1,6})\s+(.+)$/gm
-    const items: OutlineItem[] = []
-    let match
-    
-    while ((match = headingRegex.exec(content)) !== null) {
-      items.push({
-        id: `heading-${items.length}`,
-        level: match[1].length,
-        text: match[2],
-        position: match.index
-      })
+      setRenderedContent(rendered);
     }
     
-    setOutlineItems(items)
-  }
+    // 提取和更新大纲
+    const newOutline = extractOutline(content);
+    setOutlineItems(newOutline);
+  };
 
   // 处理删除笔记
   const handleDeleteNote = () => {
@@ -396,34 +464,23 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
     textarea.scrollTop = (lines - 1) * lineHeight
   }
 
-  // 初始化
-  useEffect(() => {
-    if (note) {
-      // 更新预览内容
-      setRenderedContent(md.render(note.content))
-      
-      // 提取大纲
-      extractOutline(note.content)
-    }
-  }, [note?.id])
-
   // 注册快捷键
-  useHotkeys([
-    { key: 'ctrl+b', callback: () => handleToolbarAction('bold') },
-    { key: 'ctrl+i', callback: () => handleToolbarAction('italic') },
-    { key: 'ctrl+shift+x', callback: () => handleToolbarAction('strikethrough') },
-    { key: 'ctrl+1', callback: () => handleToolbarAction('h1') },
-    { key: 'ctrl+2', callback: () => handleToolbarAction('h2') },
-    { key: 'ctrl+3', callback: () => handleToolbarAction('h3') },
-    { key: 'ctrl+l', callback: () => handleToolbarAction('ul') },
-    { key: 'ctrl+shift+l', callback: () => handleToolbarAction('ol') },
-    { key: 'ctrl+q', callback: () => handleToolbarAction('quote') },
-    { key: 'ctrl+shift+c', callback: () => handleToolbarAction('code') },
-    { key: 'ctrl+k', callback: () => handleToolbarAction('link') },
-    { key: 'ctrl+shift+i', callback: () => handleToolbarAction('image') },
-    { key: 'ctrl+t', callback: () => handleToolbarAction('table') },
-    { key: 'ctrl+shift+h', callback: () => handleToolbarAction('hr') },
-  ])
+  useHotkeys({
+    'Ctrl+B': () => handleToolbarAction('bold'),
+    'Ctrl+I': () => handleToolbarAction('italic'),
+    'Ctrl+Shift+X': () => handleToolbarAction('strikethrough'),
+    'Ctrl+1': () => handleToolbarAction('h1'),
+    'Ctrl+2': () => handleToolbarAction('h2'),
+    'Ctrl+3': () => handleToolbarAction('h3'),
+    'Ctrl+L': () => handleToolbarAction('ul'),
+    'Ctrl+Shift+L': () => handleToolbarAction('ol'),
+    'Ctrl+Q': () => handleToolbarAction('quote'),
+    'Ctrl+Shift+C': () => handleToolbarAction('code'),
+    'Ctrl+K': () => handleToolbarAction('link'),
+    'Ctrl+Shift+I': () => handleToolbarAction('image'),
+    'Ctrl+T': () => handleToolbarAction('table'),
+    'Ctrl+Shift+H': () => handleToolbarAction('hr')
+  });
 
   // 如果笔记不存在，显示错误信息
   if (!note) {
@@ -433,6 +490,58 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
       </div>
     )
   }
+
+  // 添加回extractOutline函数定义
+  const extractOutline = (content: string): OutlineItem[] => {
+    const items: OutlineItem[] = []
+    
+    // 使用正则表达式提取标题
+    const lines = content.split('\n')
+    
+    lines.forEach((line, index) => {
+      // 匹配 Markdown 标题格式
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
+      if (headingMatch) {
+        const level = headingMatch[1].length
+        const text = headingMatch[2].trim()
+        
+        items.push({
+          id: `heading-${items.length}`,
+          level,
+          text,
+          line: index + 1,
+          position: content.indexOf(line)
+        })
+      }
+    })
+    
+    return items
+  }
+
+  // 添加导出函数
+  const handleExport = () => {
+    if (!note) return;
+    
+    const markdown = note.content;
+    const filename = `${note.title || '笔记'}.md`;
+    
+    // 创建Blob对象
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    
+    // 触发下载
+    document.body.appendChild(a);
+    a.click();
+    
+    // 清理
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   // 渲染编辑器
   return (
@@ -454,9 +563,30 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
         </div>
         
           <div className="ml-auto flex items-center space-x-2">
+            {/* 所见即所得按钮 */}
+            <button
+              onClick={() => {
+                setIsWysiwygMode(!isWysiwygMode);
+                // 切换为所见即所得模式时需要关闭预览和分屏模式
+                if (!isWysiwygMode) {
+                  setIsPreview(false);
+                  setIsSplitView(false);
+                }
+              }}
+              className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                isWysiwygMode ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'
+              }`}
+              title="所见即所得编辑"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9h8M8 13h4" />
+              </svg>
+            </button>
+            
             {/* 标签按钮 */}
             <button
-            onClick={() => setIsTagSelectorOpen(!isTagSelectorOpen)}
+              onClick={() => setIsTagSelectorOpen(!isTagSelectorOpen)}
               className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
               title="标签"
             >
@@ -520,73 +650,143 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
         </div>
       )}
 
-      {/* 标签选择器 */}
-      {isTagSelectorOpen && (
-        <div className="border-b border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-800">
-          <TagSelector noteId={note.id} onClose={() => setIsTagSelectorOpen(false)} />
-        </div>
-      )}
-
-      {/* 标题输入 */}
-      <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <input
-          ref={titleRef}
-          type="text"
-          value={note.title}
-          onChange={handleTitleChange}
-          placeholder="笔记标题"
-          className="w-full text-xl font-semibold border-none focus:outline-none focus:ring-0 bg-transparent dark:text-white"
-        />
-        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-          <span>
-            {new Date(note.updatedAt).toLocaleString()} · {note.content.length} 字符
-          </span>
-          <span className="mx-2">·</span>
-          <span>{category ? category.name : '未分类'}</span>
-          {isSaving && (
-            <span className="ml-2 flex items-center text-blue-500">
-              <svg className="w-3 h-3 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              保存中...
-            </span>
-          )}
-        </div>
-      </div>
-      
-      {/* 内容区域 */}
+      {/* 整体内容区 - 修改为左右两栏结构 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 编辑/预览区域 */}
-        <div className={`flex flex-1 ${isSplitView ? 'space-x-4' : ''}`}>
-          {/* 编辑区域 */}
-          {!isPreview && (
-            <div className={`${isSplitView ? 'w-1/2' : 'w-full'} h-full overflow-auto`}>
-              <textarea
-                ref={contentRef}
-                value={note.content}
-                onChange={handleContentChange}
-                className="w-full h-full p-4 border-none resize-none focus:outline-none focus:ring-0 bg-white dark:bg-gray-800 dark:text-white font-mono"
-                placeholder="开始编写笔记..."
-              />
+        {/* 左侧笔记编辑区 */}
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* 标题输入 - 固定高度 */}
+          <div className="flex-none px-4 py-3 border-b dark:border-gray-700">
+            <input
+              ref={titleRef}
+              type="text"
+              value={localTitle}
+              onChange={handleTitleChange}
+              placeholder="笔记标题"
+              className="w-full text-xl font-semibold border-none focus:outline-none focus:ring-0 bg-transparent dark:text-white"
+            />
+            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+              <span>
+                {new Date(note.updatedAt).toLocaleString()} · {note.content.length} 字符
+              </span>
+              <span className="mx-2">·</span>
+              <span>{category ? category.name : '未分类'}</span>
+              {isSaving && (
+                <span className="ml-2 flex items-center text-blue-500">
+                  <svg className="w-3 h-3 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  保存中...
+                </span>
+              )}
             </div>
-          )}
-          
-          {/* 预览区域 */}
-          {(isPreview || isSplitView) && (
-            <div className={`${isSplitView ? 'w-1/2' : 'w-full'} h-full overflow-auto p-4 prose dark:prose-invert max-w-none`} 
-                 dangerouslySetInnerHTML={{ __html: renderedContent }} />
-          )}
+          </div>
+
+          {/* 内容区域 - 使用flex-1和min-h-0确保正确计算高度 */}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {/* 编辑/预览区域 */}
+            <div className={`flex flex-1 min-h-0 ${isSplitView ? 'space-x-4' : ''}`}>
+              {/* 编辑区域 */}
+              {!isPreview && (
+                <div className={`${isSplitView ? 'w-1/2' : 'w-full'} min-h-0 flex-1 overflow-auto`}>
+                  {isWysiwygMode ? (
+                    <div className="h-full">
+                      {note && React.createElement(WysiwygMarkdownEditor, {
+                        content: localContent,
+                        onChange: (newContent: string) => {
+                          if (!note) return;
+                          
+                          setLocalContent(newContent);
+                          
+                          // 更新渲染状态
+                          updateRenderedContent(newContent);
+                          
+                          // 保存到服务器
+                          debouncedSave(note.id, { content: newContent });
+                        }
+                      })}
+                    </div>
+                  ) : (
+                    <textarea
+                      ref={contentRef}
+                      value={localContent}
+                      onChange={handleContentChange}
+                      className="w-full h-full p-4 border-none resize-none focus:outline-none focus:ring-0 bg-white dark:bg-gray-800 dark:text-white font-mono"
+                      placeholder="开始编写笔记..."
+                      style={{ height: "100%" }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* 预览区域 */}
+              {(isPreview || isSplitView) && (
+                <div className={`${isSplitView ? 'w-1/2' : 'w-full'} min-h-0 flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none`}>
+                  {React.createElement(MarkdownPreview, {
+                    content: renderedContent,
+                    className: "h-full"
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 底部状态栏 */}
+          <div className="flex-none h-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
+            <div className="flex space-x-6">
+              <span>创建于: {new Date(note.createdAt).toLocaleString()}</span>
+              <span>更新于: {new Date(note.updatedAt).toLocaleString()}</span>
+              <span>字数: {note.content.length}</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button 
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex items-center"
+                onClick={() => setIsSaving(true)}
+                title="保存笔记"
+              >
+                <span className="mr-1">快捷键</span>
+                <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs border border-gray-300 dark:border-gray-600">Ctrl+S</kbd>
+              </button>
+              <button 
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex items-center"
+                onClick={() => setIsPreview(!isPreview)}
+                title="切换预览"
+              >
+                <span className="mr-1">预览</span>
+                <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs border border-gray-300 dark:border-gray-600">Ctrl+P</kbd>
+              </button>
+              <button 
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                onClick={handleExport}
+                title="导出笔记"
+              >
+                导出
+              </button>
+              <button 
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex items-center"
+                onClick={() => {
+                  if (note) {
+                    window.open(`print/${note.id}`, '_blank');
+                  }
+                }}
+                title="打印笔记"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-        
-        {/* 大纲区域 */}
+
+        {/* 右侧大纲区域 */}
         {showOutline && (
           <ResizablePanel
-            id="outline"
+            id="editor-outline"
             defaultWidth={250}
             minWidth={180}
             maxWidth={400}
             direction="left"
-            className="border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+            className="bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700"
           >
             <div className="h-full overflow-auto">
               <div className="p-3 border-b border-gray-200 dark:border-gray-700">
@@ -617,8 +817,20 @@ const Editor = ({ noteId }: EditorProps): JSX.Element => {
             </div>
           </ResizablePanel>
         )}
+
+        
       </div>
-      
+
+      {/* 标签选择器 */}
+      <AnimatePresence>
+        {isTagSelectorOpen && (
+          <TagSelector 
+            noteId={note.id} 
+            onClose={() => setIsTagSelectorOpen(false)} 
+          />
+        )}
+      </AnimatePresence>
+
       {/* 隐藏的文件输入 */}
       <input
         ref={fileInputRef}

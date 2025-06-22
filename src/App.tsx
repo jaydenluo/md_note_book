@@ -427,18 +427,32 @@ function App() {
           {/* 侧边栏 */}
           <AnimatePresence>
             {sidebarOpen && (
-              <div className="h-[calc(100vh-48px)] border-r border-gray-200 dark:border-gray-700 w-[250px] min-w-[180px] max-w-[350px] relative">
+              <ResizablePanel
+                id="sidebar-panel"
+                defaultWidth={250}
+                minWidth={200}
+                maxWidth={400}
+                direction="right"
+                className="h-[calc(100vh-48px)] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+              >
                 {renderSidebar()}
-              </div>
+              </ResizablePanel>
             )}
           </AnimatePresence>
           
           {/* 主内容区 */}
           <div className="flex flex-1 h-[calc(100vh-48px)]">
             {/* 笔记列表 */}
-            <div className="w-[280px] min-w-[220px] max-w-[400px] border-r border-gray-200 dark:border-gray-700">
+            <ResizablePanel
+              id="note-list-panel"
+              defaultWidth={280}
+              minWidth={220}
+              maxWidth={500}
+              direction="right"
+              className="border-r border-gray-200 dark:border-gray-700"
+            >
               {renderNoteList()}
-            </div>
+            </ResizablePanel>
             
             {/* 笔记内容 */}
             <div className="flex-1">
