@@ -53,18 +53,24 @@ export const useNotes = create<NoteStore>((set, get) => ({
   },
 
   createNote: (data: CreateNoteData) => {
+    console.log('【创建笔记】开始创建笔记，传入的数据:', data);
+    
     const newNote: Note = {
       id: uuidv4(),
       ...data,
       createdAt: new Date(),
       updatedAt: new Date()
     }
+    
+    console.log('【创建笔记】创建的新笔记:', newNote);
 
     const notes = [...get().notes, newNote]
     storage.saveNotes(notes).catch(err => {
       set({ error: (err as Error).message })
     })
     set({ notes })
+    
+    console.log('【创建笔记】完成创建，当前笔记总数:', notes.length);
 
     return newNote.id
   },

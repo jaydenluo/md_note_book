@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { storage } from '@services/storage'
 import { useCategories } from '@stores/categoryStore'
@@ -12,9 +12,12 @@ import { cn } from '@utils/cn'
 import { TabManager } from './components/TabManager'
 import { NoteTab } from './components/NoteTab'
 import { ResizablePanel } from './components/ui/ResizablePanel'
+import { Sidebar } from './components/Sidebar'
+import { setupContextMenu, createContextMenu } from '@utils/contextMenu'
+import type { Note } from '@stores/noteStore'
 
 // Lucide 图标组件
-import { Menu, Search, Star, Clock, Share, Settings, Plus, FileText } from 'lucide-react'
+import { Menu, Search, Star, Clock, Share, Settings, Plus } from 'lucide-react'
 
 function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
@@ -26,6 +29,20 @@ function App() {
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768)
+  
+  // 添加右键菜单状态
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    type?: string;
+    data?: any;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
+  
   const newCategoryInputRef = useRef<HTMLInputElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -59,8 +76,48 @@ function App() {
     tabs: tabs.map(t => ({ id: t.id, noteId: t.noteId, title: t.title })),
     activeTabId,
     selectedNoteId,
-    activeTab: activeTab ? { id: activeTab.id, noteId: activeTab.noteId, title: activeTab.title } : null
+    activeTab: activeTab ? { id: activeTab.id, noteId: activeTab.noteId, title: activeTab.title } : null,
+    selectedCategoryId,
+    totalNotes: notes.length
   });
+
+  // 从localStorage加载分类ID（仅在组件挂载时执行一次）
+  useEffect(() => {
+    // 从localStorage加载上次选择的分类ID
+    const savedCategoryId = localStorage.getItem('selectedCategoryId');
+    if (savedCategoryId) {
+      console.log('从localStorage加载分类ID:', savedCategoryId);
+      setSelectedCategoryId(savedCategoryId);
+    }
+  }, []);
+
+  // 筛选笔记
+  const filteredNotes = useMemo(() => {
+    // 简化日志
+    console.log('筛选笔记，分类ID:', selectedCategoryId);
+    
+    return notes.filter(note => {
+      // 分类筛选
+      if (selectedCategoryId && note.categoryId !== selectedCategoryId) {
+        return false;
+      }
+      
+      // 搜索筛选
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return note.title.toLowerCase().includes(query) || 
+               note.content.toLowerCase().includes(query);
+      }
+      
+      return true;
+    });
+  }, [notes, selectedCategoryId, searchQuery]);
+
+  // 监听selectedCategoryId变化
+  useEffect(() => {
+    // 简化日志
+    console.log('分类ID变化:', selectedCategoryId);
+  }, [selectedCategoryId]);
 
   // 响应式设计
   useEffect(() => {
@@ -79,6 +136,11 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
+
+  // 禁用默认右键菜单
+  useEffect(() => {
+    setupContextMenu();
+  }, []);
 
   // 初始化数据
   useEffect(() => {
@@ -107,10 +169,19 @@ function App() {
 
   // 当选中的分类被删除时，重置选中状态
   useEffect(() => {
-    if (selectedCategoryId && !notes.some(note => note.categoryId === selectedCategoryId)) {
-      setSelectedCategoryId(null)
+    // 只在以下情况重置分类ID：
+    // 1. 有选中的分类ID
+    // 2. 有笔记存在（不是空列表）
+    // 3. 但没有任何笔记属于该分类
+    if (
+      selectedCategoryId && 
+      notes.length > 0 && 
+      !categories.some(c => c.id === selectedCategoryId) // 只在分类不存在时重置
+    ) {
+      console.log('选中的分类已被删除，重置选中状态');
+      setSelectedCategoryId(null);
     }
-  }, [notes, selectedCategoryId])
+  }, [notes, categories, selectedCategoryId]);
 
   // 自动聚焦新分类输入框
   useEffect(() => {
@@ -119,8 +190,45 @@ function App() {
     }
   }, [isCreatingCategory])
 
+  // 记录selectedCategoryId变化
+  const selectedCategoryIdRef = useRef(selectedCategoryId);
+  
+  // 同步ref值与state值
+  useEffect(() => {
+    // 当状态值变化时更新ref
+    selectedCategoryIdRef.current = selectedCategoryId;
+    console.log('selectedCategoryId实际变化为:', selectedCategoryId);
+  }, [selectedCategoryId]);
+
+  // 创建一个包装过的setSelectedCategoryId函数，用于跟踪状态变化
+  const setSelectedCategoryIdWithLogging = (id: string | null) => {
+    // 简洁日志
+    console.log('设置分类ID:', id);
+    
+    // 防止设置相同的值
+    if (id === selectedCategoryId) {
+      return;
+    }
+    
+    // 直接保存到localStorage，避免使用useEffect
+    if (id) {
+      localStorage.setItem('selectedCategoryId', id);
+    } else {
+      localStorage.removeItem('selectedCategoryId');
+    }
+    
+    // 更新状态 - 放在最后执行
+    setSelectedCategoryId(id);
+    
+    // 立即更新ref，以便其他地方可以访问最新值
+    selectedCategoryIdRef.current = id;
+  };
+
   // 创建笔记
   const handleCreateNote = () => {
+    // 添加日志，确认使用了正确的分类ID
+    console.log('创建笔记使用的分类ID:', selectedCategoryId);
+    
     const id = createNote({
       title: '新笔记',
       content: '',
@@ -162,23 +270,6 @@ function App() {
     }
   }
 
-  // 筛选笔记
-  const filteredNotes = notes.filter(note => {
-    // 分类筛选
-    if (selectedCategoryId && note.categoryId !== selectedCategoryId) {
-      return false
-    }
-    
-    // 搜索筛选
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return note.title.toLowerCase().includes(query) || 
-             note.content.toLowerCase().includes(query)
-    }
-    
-    return true
-  })
-
   // 渲染侧边栏内容
   const renderSidebar = () => (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800">
@@ -217,67 +308,12 @@ function App() {
         </button>
       </div>
       
-      {/* 分类 */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-medium dark:text-white">分类</h2>
-          <button 
-            onClick={() => setIsCreatingCategory(true)}
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-        
-        {isCreatingCategory && (
-          <div className="mb-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-            <input
-              ref={newCategoryInputRef}
-              type="text"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="分类名称"
-              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg mb-1 bg-white dark:bg-gray-800 dark:text-white"
-            />
-            <div className="flex justify-end space-x-2">
-              <button 
-                className="px-2 py-1 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-                onClick={() => setIsCreatingCategory(false)}
-              >
-                取消
-              </button>
-              <button 
-                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-                onClick={handleCreateCategory}
-                disabled={!newCategoryName.trim()}
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        )}
-        
-        <div className="space-y-1">
-          {categories.map(category => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategoryId(category.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg ${
-                selectedCategoryId === category.id
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              <div className="flex items-center">
-                <FileText className="h-4 w-4 mr-2" />
-                <span className="truncate">{category.name}</span>
-              </div>
-              <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-full">
-                {notes.filter(note => note.categoryId === category.id).length}
-              </span>
-            </button>
-          ))}
-        </div>
+      {/* 使用Sidebar组件显示分类 */}
+      <div className="flex-1 overflow-auto">
+        <Sidebar
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryIdWithLogging}
+        />
       </div>
     </div>
   )
@@ -319,6 +355,7 @@ function App() {
               <button
                 key={note.id}
                 onClick={() => handleOpenNote(note.id)}
+                onContextMenu={(e) => handleNoteContextMenu(e, note)}
                 className={`w-full p-3 text-left ${
                   selectedNoteId === note.id 
                     ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' 
@@ -339,6 +376,30 @@ function App() {
       </div>
     </div>
   )
+
+  // 处理笔记右键菜单
+  const handleNoteContextMenu = (e: React.MouseEvent, note: Note) => {
+    e.preventDefault();
+    
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    createContextMenu(x, y, [
+      {
+        label: '打开',
+        onClick: () => handleOpenNote(note.id)
+      },
+      {
+        label: '删除',
+        onClick: () => {
+          if (confirm(`确定要删除笔记 "${note.title || '无标题'}" 吗？`)) {
+            // 这里需要调用deleteNote函数
+            console.log('删除笔记:', note.id);
+          }
+        }
+      }
+    ]);
+  };
 
   // 渲染笔记内容区域（包含标签）
   const renderNoteContent = () => (
@@ -387,6 +448,22 @@ function App() {
     </div>
   )
 
+  const debugAppState = () => {
+    console.log('========== 应用状态 ==========');
+    console.log('当前选中的分类ID:', selectedCategoryId);
+    console.log('分类数量:', categories.length);
+    console.log('笔记总数:', notes.length);
+    console.log('筛选后的笔记数:', filteredNotes.length);
+    
+    // 检查每个分类下的笔记数量
+    categories.forEach(category => {
+      const notesInCategory = notes.filter(note => note.categoryId === category.id);
+      console.log(`分类 "${category.name}" 下的笔记数量:`, notesInCategory.length);
+    });
+    
+    console.log('========== 调试结束 ==========');
+  };
+
   // 加载动画
   if (isLoading) {
     return (
@@ -414,9 +491,7 @@ function App() {
             <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
             <button 
               className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded"
-              onClick={() => {
-                console.log('当前状态:', { tabs, activeTabId, selectedNoteId });
-              }}
+              onClick={debugAppState}
             >
               调试
             </button>
