@@ -240,25 +240,15 @@ function App() {
   const { showPrompt } = usePromptDialog()
   const { showAlert, showConfirm } = useAlertDialog()
 
-  // 创建笔记
+  // 创建新笔记
   const handleCreateNote = () => {
-    // 没有选中分类时，弹窗提示
-    if (!selectedCategoryId) {
-      showAlert({
-        title: '提示',
-        description: '请先选择一个分类再新建笔记！'
-      });
-      return;
-    }
-    // 添加日志，确认使用了正确的分类ID
-    console.log('创建笔记使用的分类ID:', selectedCategoryId);
     const id = createNote({
       title: '新笔记',
       content: '',
       categoryId: selectedCategoryId
     })
     // 创建新标签并激活
-    addTab(id)
+    addTab(id, '新笔记')
     activateTab(id)
   }
 
@@ -357,7 +347,9 @@ function App() {
       type: 'doc',
       parentId: dragOverFolderId && dragOverFolderId !== 'root' ? dragOverFolderId : null
     });
-    setSelectedNoteId(id);
+    // 使用正确的tab管理方法，而不是直接设置selectedNoteId
+    addTab(id, '新文档')
+    activateTab(id)
   };
   // 新建目录
   const handleCreateFolder = () => {
@@ -500,7 +492,7 @@ function App() {
                     parentId: folder.id
                   });
                   // 自动打开新建文档
-                  addTab(id);
+                  addTab(id, '新文档');
                   activateTab(id);
                 }}
               >

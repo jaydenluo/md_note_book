@@ -1,5 +1,6 @@
 @import './styles/theme.css';
 @import './styles/markdown.css';
+@import './styles/editor.css';
 
 @tailwind base;
 @tailwind components;

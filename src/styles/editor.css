@@ -1,0 +1,364 @@
+/* 编辑器专用样式 - 简洁版本 */
+
+/* 编辑器容器 */
+.editor-container {
+  @apply relative;
+}
+
+/* 工具栏样式 */
+.editor-toolbar {
+  @apply border-b border-gray-200 dark:border-gray-700;
+}
+
+/* 编辑器内容区域 */
+.editor-content {
+  @apply relative;
+}
+
+/* 自定义滚动条 */
+.editor-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* 紧凑编辑器样式 */
+.compact-editor {
+  @apply outline-none;
+}
+
+.compact-editor * {
+  line-height: 1.4 !important; /* 调整行间距为1.4，稍微大一点 */
+}
+
+/* 紧凑编辑器中的段落 */
+.compact-editor p {
+  @apply text-gray-700 dark:text-gray-300;
+  margin-bottom: 4px !important; /* 段落间距稍微增加 */
+  line-height: 1.4 !important;
+}
+
+/* 紧凑编辑器中的标题 */
+.compact-editor h1 {
+  @apply text-2xl font-bold text-gray-900 dark:text-gray-100;
+  margin-bottom: 6px !important;
+  margin-top: 8px !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor h2 {
+  @apply text-xl font-bold text-gray-800 dark:text-gray-200;
+  margin-bottom: 5px !important;
+  margin-top: 7px !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor h3 {
+  @apply text-lg font-semibold text-gray-700 dark:text-gray-300;
+  margin-bottom: 4px !important;
+  margin-top: 6px !important;
+  line-height: 1.4 !important;
+}
+
+/* 紧凑编辑器中的列表 */
+.compact-editor ul {
+  @apply list-disc pl-6;
+  margin-bottom: 4px !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor ol {
+  @apply list-decimal pl-6;
+  margin-bottom: 4px !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor li {
+  @apply text-gray-700 dark:text-gray-300;
+  margin-bottom: 2px !important; /* 列表项间距稍微增加 */
+  line-height: 1.4 !important;
+}
+
+/* 紧凑编辑器中的引用块 */
+.compact-editor blockquote {
+  @apply border-l-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800;
+  @apply pl-4 py-2 italic text-gray-600 dark:text-gray-400;
+  margin: 5px 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* 紧凑编辑器中的代码 */
+.compact-editor code {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200;
+  @apply px-1 py-0.5 rounded text-sm font-mono;
+  line-height: 1.4 !important;
+}
+
+.compact-editor pre {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded;
+  @apply overflow-x-auto border border-gray-200 dark:border-gray-700;
+  margin: 5px 0 !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+/* 紧凑编辑器中的链接 */
+.compact-editor a {
+  @apply text-blue-600 dark:text-blue-400 underline;
+}
+
+/* 紧凑编辑器中的表格 */
+.compact-editor table {
+  @apply w-full border-collapse border border-gray-300 dark:border-gray-600;
+  @apply rounded overflow-hidden;
+  margin: 5px 0 !important;
+}
+
+.compact-editor th {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  @apply font-semibold p-2 text-left border-b border-gray-300 dark:border-gray-600;
+  line-height: 1.4 !important;
+}
+
+.compact-editor td {
+  @apply p-2 border-b border-gray-200 dark:border-gray-700;
+  @apply text-gray-700 dark:text-gray-300;
+  line-height: 1.4 !important;
+}
+
+.compact-editor tr:hover {
+  @apply bg-gray-50 dark:bg-gray-700/50;
+}
+
+/* 紧凑编辑器中的水平分割线 */
+.compact-editor hr {
+  @apply border-t border-gray-300 dark:border-gray-600;
+  margin: 8px 0 !important;
+}
+
+/* 编辑器内容样式 */
+.ProseMirror {
+  @apply outline-none;
+  line-height: 1.2; /* 全局行间距设置为2px左右 */
+}
+
+/* 占位符样式 */
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-gray-400 dark:text-gray-500 float-left h-0 pointer-events-none;
+  content: attr(data-placeholder);
+}
+
+/* 选中文本样式 */
+.ProseMirror ::selection {
+  @apply bg-blue-200 dark:bg-blue-800;
+}
+
+/* 标题样式 */
+.ProseMirror h1 {
+  @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 mt-6;
+  line-height: 1.3; /* 标题行间距稍大一些 */
+}
+
+.ProseMirror h2 {
+  @apply text-xl font-bold text-gray-800 dark:text-gray-200 mb-3 mt-5;
+  line-height: 1.3;
+}
+
+.ProseMirror h3 {
+  @apply text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2 mt-4;
+  line-height: 1.3;
+}
+
+/* 段落样式 - 调整行间距为2px */
+.ProseMirror p {
+  @apply text-gray-700 dark:text-gray-300 mb-3;
+  line-height: 1.2; /* 约等于2px的行间距 */
+  margin-bottom: 2px; /* 段落之间的间距 */
+}
+
+/* 链接样式 */
+.ProseMirror a {
+  @apply text-blue-600 dark:text-blue-400 underline;
+}
+
+/* 引用块样式 */
+.ProseMirror blockquote {
+  @apply border-l-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800;
+  @apply pl-4 py-2 my-3 italic text-gray-600 dark:text-gray-400;
+  line-height: 1.2;
+}
+
+/* 代码样式 */
+.ProseMirror code {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200;
+  @apply px-1 py-0.5 rounded text-sm font-mono;
+  line-height: 1.2;
+}
+
+.ProseMirror pre {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded;
+  @apply overflow-x-auto border border-gray-200 dark:border-gray-700;
+  line-height: 1.2;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+/* 列表样式 - 调整行间距为2px */
+.ProseMirror ul {
+  @apply list-disc pl-6;
+  line-height: 1.2; /* 约等于2px的行间距 */
+}
+
+.ProseMirror ol {
+  @apply list-decimal pl-6;
+  line-height: 1.2; /* 约等于2px的行间距 */
+}
+
+.ProseMirror li {
+  @apply text-gray-700 dark:text-gray-300;
+  margin-bottom: 2px; /* 列表项之间的间距 */
+  line-height: 1.2;
+}
+
+/* 图片样式 */
+.ProseMirror img {
+  @apply max-w-full h-auto rounded;
+}
+
+/* 表格样式 */
+.ProseMirror table {
+  @apply w-full border-collapse border border-gray-300 dark:border-gray-600;
+  @apply rounded overflow-hidden;
+}
+
+.ProseMirror th {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  @apply font-semibold p-2 text-left border-b border-gray-300 dark:border-gray-600;
+  line-height: 1.2;
+}
+
+.ProseMirror td {
+  @apply p-2 border-b border-gray-200 dark:border-gray-700;
+  @apply text-gray-700 dark:text-gray-300;
+  line-height: 1.2;
+}
+
+.ProseMirror tr:hover {
+  @apply bg-gray-50 dark:bg-gray-700/50;
+}
+
+/* 水平分割线 */
+.ProseMirror hr {
+  @apply border-t border-gray-300 dark:border-gray-600 my-6;
+}
+
+/* 工具栏按钮样式 */
+.toolbar-button {
+  @apply transition-colors;
+}
+
+.toolbar-button:hover {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .ProseMirror {
+    @apply p-3;
+  }
+  
+  .ProseMirror h1 {
+    @apply text-xl;
+  }
+  
+  .ProseMirror h2 {
+    @apply text-lg;
+  }
+  
+  .ProseMirror h3 {
+    @apply text-base;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .editor-toolbar {
+    @apply hidden;
+  }
+  
+  .ProseMirror {
+    @apply p-0;
+  }
+}
+
+/* 编辑器基础样式 */
+.tiptap-editor {
+  @apply max-w-none focus:outline-none min-h-[300px] p-4 pl-8 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  position: relative;
+}
+
+/* 标题前缀样式 */
+.tiptap-editor h1,
+.tiptap-editor h2,
+.tiptap-editor h3,
+.tiptap-editor h4,
+.tiptap-editor h5,
+.tiptap-editor h6 {
+  @apply relative;
+}
+
+.tiptap-editor h1::before,
+.tiptap-editor h2::before,
+.tiptap-editor h3::before,
+.tiptap-editor h4::before,
+.tiptap-editor h5::before,
+.tiptap-editor h6::before {
+  @apply absolute text-xs font-normal text-gray-400 dark:text-gray-500;
+  left: -1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tiptap-editor h1::before {
+  content: 'H1';
+}
+
+.tiptap-editor h2::before {
+  content: 'H2';
+}
+
+.tiptap-editor h3::before {
+  content: 'H3';
+}
+
+.tiptap-editor h4::before {
+  content: 'H4';
+}
+
+.tiptap-editor h5::before {
+  content: 'H5';
+}
+
+.tiptap-editor h6::before {
+  content: 'H6';
+}
+
+/* 编辑器内容区域样式 */
+.tiptap-editor > div {
+  @apply max-w-4xl mx-auto;
+} 
