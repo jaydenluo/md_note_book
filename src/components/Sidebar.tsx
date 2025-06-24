@@ -6,43 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Settings, Moon, Sun, Cloud } from 'lucide-react'
 import { useTheme } from '@utils/theme'
 import { addCustomContextMenu, createContextMenu } from '@utils/contextMenu'
-
-// 自定义Folder图标
-const FolderIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-  </svg>
-);
-
-// 自定义FolderPlus图标
-const FolderPlusIcon = ({ size = 16 }: { size?: number }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-    <line x1="12" y1="10" x2="12" y2="16" />
-    <line x1="9" y1="13" x2="15" y2="13" />
-  </svg>
-);
+import { useAlertDialog } from '@/components/ui/alert-dialog'
+import { FolderIcon, FolderPlusIcon } from '@/components/icons'
 
 interface SidebarProps {
   selectedCategoryId: string | null
@@ -66,6 +31,7 @@ export const Sidebar: FC<SidebarProps> = ({
   const updateCategory = useCategories(state => state.updateCategory)
   const notes = useNotes(state => state.notes)
   const { isDark, toggleTheme } = useTheme()
+  const { showConfirm } = useAlertDialog()
 
   // 自动聚焦新分类输入框
   useEffect(() => {
@@ -131,18 +97,19 @@ export const Sidebar: FC<SidebarProps> = ({
   }
 
   // 删除分类
-  const handleDeleteCategory = (id: string, e: React.MouseEvent) => {
+  const handleDeleteCategory = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (confirm('确定要删除这个分类吗？相关笔记也会被删除。')) {
+    const confirmed = await showConfirm({
+      title: '确认删除',
+      description: '确定要删除这个分类吗？相关笔记也会被删除。'
+    });
+    if (confirmed) {
       deleteCategory(id)
     }
   }
 
   // 处理点击分类
   const handleCategoryClick = (categoryId: string) => {
-    // 简洁日志
-    console.log('点击分类:', categoryId);
-    
     // 直接设置分类ID
     onSelectCategory(categoryId);
   }
@@ -179,8 +146,12 @@ export const Sidebar: FC<SidebarProps> = ({
       },
       {
         label: '删除',
-        onClick: () => {
-          if (confirm(`确定要删除分类 "${categoryName}" 吗？`)) {
+        onClick: async () => {
+          const confirmed = await showConfirm({
+            title: '确认删除',
+            description: `确定要删除分类 "${categoryName}" 吗？`
+          });
+          if (confirmed) {
             deleteCategory(categoryId);
           }
         }
@@ -286,7 +257,10 @@ export const Sidebar: FC<SidebarProps> = ({
                         </span>
                         {selectedCategoryId === category.id && (
                           <button
-                            onClick={(e) => handleDeleteCategory(category.id, e)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCategory(category.id, e);
+                            }}
                             className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-500 dark:hover:text-red-400"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

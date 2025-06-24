@@ -3,113 +3,105 @@ import React, { useState, useEffect, useRef } from 'react';
 interface ResizablePanelProps {
   id: string; // 唯一标识，用于保存宽度设置
   defaultWidth: number; // 默认宽度（像素）
-  minWidth?: number; // 最小宽度（像素）
-  maxWidth?: number; // 最大宽度（像素）
-  direction?: 'left' | 'right'; // 调整方向
+  minWidth: number; // 最小宽度（像素）
+  maxWidth: number; // 最大宽度（像素）
+  direction: 'left' | 'right'; // 调整方向
   className?: string; // 额外的CSS类
   children: React.ReactNode;
 }
 
 /**
- * 可调整宽度的面板组件
- * @param props 组件属性
+ * 可调整大小的面板组件
+ * 支持拖拽调整宽度，并自动保存设置
  */
 export const ResizablePanel: React.FC<ResizablePanelProps> = ({
   id,
   defaultWidth,
-  minWidth = 150,
-  maxWidth = 500,
-  direction = 'right',
+  minWidth,
+  maxWidth,
+  direction,
   className = '',
   children
 }) => {
-  // 从localStorage获取保存的宽度，如果没有则使用默认宽度
-  const getSavedWidth = () => {
-    const saved = localStorage.getItem(`resizable-panel-${id}`);
-    return saved ? parseInt(saved, 10) : defaultWidth;
-  };
-
-  // 状态
-  const [width, setWidth] = useState(getSavedWidth());
-  const [isResizing, setIsResizing] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(defaultWidth);
+  const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
 
+  // 从localStorage加载保存的宽度
+  useEffect(() => {
+    const savedWidth = localStorage.getItem(`panel-width-${id}`);
+    if (savedWidth) {
+      const parsedWidth = parseInt(savedWidth, 10);
+      if (parsedWidth >= minWidth && parsedWidth <= maxWidth) {
+        setWidth(parsedWidth);
+      }
+    }
+  }, [id, minWidth, maxWidth]);
+
   // 保存宽度到localStorage
   const saveWidth = (newWidth: number) => {
-    localStorage.setItem(`resizable-panel-${id}`, newWidth.toString());
+    localStorage.setItem(`panel-width-${id}`, newWidth.toString());
   };
 
-  // 开始调整大小
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsResizing(true);
+    setIsDragging(true);
     startXRef.current = e.clientX;
     startWidthRef.current = width;
-    document.body.style.cursor = 'col-resize';
+
+    // 添加全局事件监听
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // 防止选中文本
     document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
   };
 
-  // 处理鼠标移动
-  useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
+    if (!isDragging) return;
       
-      const delta = e.clientX - startXRef.current;
-      const newWidth = direction === 'right' 
-        ? startWidthRef.current + delta 
-        : startWidthRef.current - delta;
+    const deltaX = direction === 'right' 
+      ? startXRef.current - e.clientX 
+      : e.clientX - startXRef.current;
       
-      // 限制宽度在最小值和最大值之间
-      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-      setWidth(clampedWidth);
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidthRef.current + deltaX));
+    setWidth(newWidth);
     };
 
-    // 结束调整大小
     const handleMouseUp = () => {
-      if (isResizing) {
-        setIsResizing(false);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        saveWidth(width); // 保存宽度设置
-      }
-    };
-
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+    if (isDragging) {
+      setIsDragging(false);
+      saveWidth(width);
     }
 
-    return () => {
+    // 移除全局事件监听
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing, width, minWidth, maxWidth, direction]);
-
-  // 调整手柄的样式和位置
-  const handleStyle = {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '5px',
-    cursor: 'col-resize',
-    ...(direction === 'right'
-      ? { right: '-2px' }
-      : { left: '-2px' }),
-  } as React.CSSProperties;
+    
+    // 恢复默认样式
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  };
 
   return (
     <div
-      ref={panelRef}
       className={`relative ${className}`}
-      style={{ width: `${width}px`, flexShrink: 0 }}
+      style={{ width: `${width}px` }}
     >
       {children}
+      
+      {/* 拖拽把手 */}
       <div
-        className="absolute top-0 bottom-0 z-10 hover:bg-blue-500 hover:opacity-20"
-        style={handleStyle}
+        className={`
+          absolute top-0 bottom-0 w-1 cursor-col-resize z-10
+          ${direction === 'right' ? '-left-0.5' : '-right-0.5'}
+          hover:bg-blue-500 hover:opacity-50 transition-colors duration-200
+          ${isDragging ? 'bg-blue-500 opacity-50' : 'bg-transparent'}
+        `}
         onMouseDown={handleMouseDown}
+        title="拖拽调整宽度"
       />
     </div>
   );

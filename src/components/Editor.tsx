@@ -147,27 +147,52 @@ const Editor: FC<EditorProps> = ({ noteId }) => {
 
   // 提取大纲
   const extractOutline = (content: string) => {
-    // 使用正则表达式匹配 Markdown 标题
-    const headingRegex = /^(#{1,6})\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?$/gm;
     const items: OutlineItem[] = [];
-    let match;
     
-    let lastIndex = 0;
-    while ((match = headingRegex.exec(content)) !== null) {
-      const level = match[1].length; // # 的数量表示标题级别
-      const text = match[2].trim();
-      const id = match[3] || '';
-      const position = match.index;
+    // 检查内容类型：HTML还是Markdown
+    const isHTML = content.includes('<') && content.includes('>');
+    
+    if (isHTML) {
+      // 从HTML内容中提取标题
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(content, 'text/html');
+      const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
       
-      items.push({
-        id,
-        level,
-        text,
-        position,
-        line: content.substring(0, position).split('\n').length
+      headings.forEach((heading, index) => {
+        const level = parseInt(heading.tagName.charAt(1));
+        const text = heading.textContent?.trim() || '';
+        const id = heading.id || '';
+        
+        // 计算位置（大致估算）
+        const position = content.indexOf(heading.outerHTML);
+        
+        items.push({
+          id,
+          level,
+          text,
+          position: position >= 0 ? position : index * 100,
+          line: content.substring(0, position).split('\n').length
+        });
       });
+    } else {
+      // 从Markdown内容中提取标题
+      const headingRegex = /^(#{1,6})\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?$/gm;
+      let match;
       
-      lastIndex = headingRegex.lastIndex;
+      while ((match = headingRegex.exec(content)) !== null) {
+        const level = match[1].length; // # 的数量表示标题级别
+        const text = match[2].trim();
+        const id = match[3] || '';
+        const position = match.index;
+        
+        items.push({
+          id,
+          level,
+          text,
+          position,
+          line: content.substring(0, position).split('\n').length
+        });
+      }
     }
     
     setOutlineItems(items);
@@ -181,16 +206,38 @@ const Editor: FC<EditorProps> = ({ noteId }) => {
     // 滚动编辑器到指定位置
     const editorElement = document.querySelector('.tiptap-editor .ProseMirror');
     if (editorElement) {
-      // 获取大致的滚动位置
-      const linesBeforePosition = localContent.substring(0, position).split('\n').length;
-      const lineHeight = 24; // 估计的行高
-      const scrollTop = linesBeforePosition * lineHeight;
+      // 对于HTML内容，尝试通过ID或位置来定位
+      const isHTML = localContent.includes('<') && localContent.includes('>');
       
-      editorElement.scrollTop = scrollTop;
+      if (isHTML) {
+        // 尝试通过ID定位
+        const outlineItem = outlineItems.find(item => item.position === position);
+        if (outlineItem && outlineItem.id) {
+          const targetElement = editorElement.querySelector(`#${outlineItem.id}`);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+        
+        // 如果无法通过ID定位，使用位置估算
+        const linesBeforePosition = localContent.substring(0, position).split('\n').length;
+        const lineHeight = 24; // 估计的行高
+        const scrollTop = linesBeforePosition * lineHeight;
+        
+        editorElement.scrollTop = scrollTop;
+      } else {
+        // 对于Markdown内容，使用原有的位置计算
+        const linesBeforePosition = localContent.substring(0, position).split('\n').length;
+        const lineHeight = 24; // 估计的行高
+        const scrollTop = linesBeforePosition * lineHeight;
+        
+        editorElement.scrollTop = scrollTop;
+      }
       
       // 尝试聚焦编辑器
       (editorElement as HTMLElement).focus();
-      }
+    }
   };
 
   // 自定义可调整宽度的大纲面板
@@ -198,7 +245,7 @@ const Editor: FC<EditorProps> = ({ noteId }) => {
     if (!showOutline) return null;
     
     return (
-      <div className="border-l border-gray-200 dark:border-gray-700 overflow-auto bg-white dark:bg-gray-800" style={{ width: '240px' }}>
+      <div className="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden" style={{ width: '240px' }}>
         {/* 使用自定义的可调整大小逻辑 */}
         <div className="outline-resizer h-full relative">
           {/* 拖拽把手 */}
@@ -236,30 +283,34 @@ const Editor: FC<EditorProps> = ({ noteId }) => {
             }}
           />
           
-          <div className="p-4 h-full">
-            <h3 className="text-lg font-medium mb-2">大纲</h3>
-            <div className="space-y-1 overflow-y-auto">
+          <div className="p-4 h-full bg-white dark:bg-gray-800">
+            <h3 className="text-lg font-medium mb-3 text-gray-900 dark:text-white">大纲</h3>
+            <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
               {outlineItems.length > 0 ? (
                 outlineItems.map((item, index) => (
                   <div 
                     key={index}
                     onClick={() => handleOutlineClick(item.position)}
                     className={`
-                      cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded p-1
-                      ${item.level === 1 ? 'font-bold' : ''}
-                      ${item.level === 2 ? 'pl-2' : ''}
-                      ${item.level === 3 ? 'pl-4' : ''}
-                      ${item.level === 4 ? 'pl-6' : ''}
-                      ${item.level === 5 ? 'pl-8' : ''}
-                      ${item.level === 6 ? 'pl-10' : ''}
+                      cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1.5 transition-colors duration-150
+                      ${item.level === 1 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}
+                      ${item.level === 2 ? 'pl-3 text-sm' : ''}
+                      ${item.level === 3 ? 'pl-6 text-sm' : ''}
+                      ${item.level === 4 ? 'pl-9 text-sm' : ''}
+                      ${item.level === 5 ? 'pl-12 text-sm' : ''}
+                      ${item.level === 6 ? 'pl-15 text-sm' : ''}
                     `}
+                    title={item.text}
                   >
                     {item.text}
                   </div>
                 ))
               ) : (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                   没有找到标题
+                  <div className="text-xs mt-1">
+                    使用工具栏的标题按钮添加标题
+                  </div>
                 </div>
               )}
             </div>
@@ -353,32 +404,38 @@ const Editor: FC<EditorProps> = ({ noteId }) => {
                 </div>
       
       {/* 底部状态栏 */}
-      <div className="flex-none border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-xs text-gray-500 dark:text-gray-400 flex justify-between items-center">
+      <div className="flex-none border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-xs text-gray-600 dark:text-gray-400 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <div>
-            字符数: {stats.chars}
+          <div className="flex items-center">
+            <span className="text-gray-500 dark:text-gray-400">字符数:</span>
+            <span className="ml-1 font-medium text-gray-700 dark:text-gray-300">{stats.chars}</span>
                 </div>
-          <div>
-            单词数: {stats.words}
+          <div className="flex items-center">
+            <span className="text-gray-500 dark:text-gray-400">单词数:</span>
+            <span className="ml-1 font-medium text-gray-700 dark:text-gray-300">{stats.words}</span>
             </div>
-          <div>
-            行数: {stats.lines}
+          <div className="flex items-center">
+            <span className="text-gray-500 dark:text-gray-400">行数:</span>
+            <span className="ml-1 font-medium text-gray-700 dark:text-gray-300">{stats.lines}</span>
           </div>
         </div>
         <div className="flex items-center">
           {isSaving ? (
-            <span className="flex items-center text-blue-500">
+            <span className="flex items-center text-blue-500 dark:text-blue-400">
               <svg className="w-3 h-3 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               正在保存...
             </span>
           ) : (
-            <span className="text-green-500">
+            <span className="text-green-500 dark:text-green-400 flex items-center">
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
               已保存
             </span>
           )}
-          <span className="ml-4">
+          <span className="ml-4 text-gray-500 dark:text-gray-400">
             最后更新: {new Date(note?.updatedAt || Date.now()).toLocaleTimeString()}
           </span>
           </div>

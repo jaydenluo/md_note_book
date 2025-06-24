@@ -10,12 +10,16 @@ export interface Note {
   createdAt: Date
   updatedAt: Date
   reminder?: Date
+  type?: 'doc' | 'folder'
+  parentId?: string | null
 }
 
 interface CreateNoteData {
   title: string
   content: string
   categoryId: string | null
+  type?: 'doc' | 'folder'
+  parentId?: string | null
 }
 
 interface NoteStore {
@@ -58,6 +62,8 @@ export const useNotes = create<NoteStore>((set, get) => ({
     const newNote: Note = {
       id: uuidv4(),
       ...data,
+      type: data.type || 'doc',
+      parentId: data.parentId || null,
       createdAt: new Date(),
       updatedAt: new Date()
     }

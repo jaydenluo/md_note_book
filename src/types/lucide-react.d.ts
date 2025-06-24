@@ -47,10 +47,13 @@ declare module 'lucide-react' {
   // 编辑器相关图标
   export const Bold: FC<IconProps>;
   export const Italic: FC<IconProps>;
+  export const Underline: FC<IconProps>;
+  export const Strikethrough: FC<IconProps>;
   export const List: FC<IconProps>;
   export const ListOrdered: FC<IconProps>;
   export const Link: FC<IconProps>;
   export const Code: FC<IconProps>;
+  export const Code2: FC<IconProps>;
   export const Quote: FC<IconProps>;
   export const Minus: FC<IconProps>;
   export const Maximize2: FC<IconProps>;
@@ -61,4 +64,16 @@ declare module 'lucide-react' {
   export const Hash1: FC<IconProps>;
   export const Hash2: FC<IconProps>;
   export const Hash3: FC<IconProps>;
+  export const Heading1: FC<IconProps>;
+  export const Heading2: FC<IconProps>;
+  export const Heading3: FC<IconProps>;
+  export const Image: FC<IconProps>;
+  export const Undo: FC<IconProps>;
+  export const Redo: FC<IconProps>;
+  export const AlignLeft: FC<IconProps>;
+  export const AlignCenter: FC<IconProps>;
+  export const AlignRight: FC<IconProps>;
+  export const AlignJustify: FC<IconProps>;
+  export const CheckSquare: FC<IconProps>;
+  export const Square: FC<IconProps>;
 } 

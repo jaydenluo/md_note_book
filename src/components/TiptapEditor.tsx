@@ -4,6 +4,31 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import { 
+  Bold, 
+  Italic, 
+  Underline as UnderlineIcon, 
+  Strikethrough, 
+  Code, 
+  Heading1, 
+  Heading2, 
+  Heading3, 
+  List, 
+  ListOrdered, 
+  Quote, 
+  Code2, 
+  Minus, 
+  Link as LinkIcon, 
+  Image as ImageIcon, 
+  Undo, 
+  Redo, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight, 
+  AlignJustify
+} from 'lucide-react'
 
 /**
  * Tiptap编辑器属性接口
@@ -47,6 +72,12 @@ const TiptapEditor = ({
         codeBlock: {
           languageClassPrefix: 'language-',
         },
+      }),
+      // 下划线扩展
+      Underline,
+      // 文本对齐扩展
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
       }),
       // 链接扩展
       Link.configure({
@@ -92,155 +123,272 @@ const TiptapEditor = ({
     }
   }, [content, editor]);
 
+  // 工具栏按钮组件
+  const ToolbarButton = ({ 
+    onClick, 
+    isActive = false, 
+    disabled = false, 
+    title, 
+    children, 
+    className = '' 
+  }: {
+    onClick: () => void;
+    isActive?: boolean;
+    disabled?: boolean;
+    title: string;
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <button
+      onClick={(e) => {
+        // 阻止事件冒泡，防止干扰编辑器焦点
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // 直接执行点击操作，不在这里处理焦点
+        onClick();
+      }}
+      disabled={disabled}
+      className={`
+        p-2 rounded-md transition-all duration-200 flex items-center justify-center
+        ${isActive 
+          ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700' 
+          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+        }
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${className}
+      `}
+      title={title}
+    >
+      {children}
+    </button>
+  );
+
+  // 工具栏分隔符组件
+  const ToolbarDivider = () => (
+    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+  );
+
   // 渲染编辑器工具栏
   const renderToolbar = () => {
     if (!editor) return null;
     
+    // 创建工具栏按钮点击处理函数
+    const handleToolbarClick = (command: () => void) => {
+      return () => {
+        // 确保编辑器存在且未销毁
+        if (!editor || editor.isDestroyed) {
+          console.warn('编辑器不存在或已销毁');
+          return;
+        }
+        
+        // 确保编辑器获得焦点
+        editor.commands.focus();
+        
+        // 执行命令
+        try {
+          command();
+        } catch (error) {
+          console.error('工具栏命令执行失败:', error);
+        }
+      };
+    };
+    
     return (
-      <div className="border-b p-2 flex gap-2 flex-wrap bg-white dark:bg-gray-800">
-        {/* 标题按钮 */}
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('heading', { level: 1 }) ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="标题1"
-        >
-          H1
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('heading', { level: 2 }) ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="标题2"
-        >
-          H2
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('heading', { level: 3 }) ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="标题3"
-        >
-          H3
-        </button>
+      <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2">
+        <div className="flex items-center gap-1 flex-wrap">
+          {/* 标题组 */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+              isActive={editor.isActive('heading', { level: 1 })}
+              title="标题1 (Ctrl+Alt+1)"
+            >
+              {React.createElement(Heading1, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+              isActive={editor.isActive('heading', { level: 2 })}
+              title="标题2 (Ctrl+Alt+2)"
+            >
+              {React.createElement(Heading2, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+              isActive={editor.isActive('heading', { level: 3 })}
+              title="标题3 (Ctrl+Alt+3)"
+            >
+              {React.createElement(Heading3, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
         
-        {/* 分隔符 */}
-        <span className="border-r h-6 mx-1"></span>
+          <ToolbarDivider />
         
-        {/* 文本格式按钮 */}
-        <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('bold') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
+          {/* 文本格式组 */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleBold().run())}
+              isActive={editor.isActive('bold')}
           title="粗体 (Ctrl+B)"
         >
-          B
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('italic') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
+              {React.createElement(Bold, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleItalic().run())}
+              isActive={editor.isActive('italic')}
           title="斜体 (Ctrl+I)"
         >
-          I
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('strike') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
+              {React.createElement(Italic, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleUnderline().run())}
+              isActive={editor.isActive('underline')}
+              title="下划线 (Ctrl+U)"
+            >
+              {React.createElement(UnderlineIcon, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleStrike().run())}
+              isActive={editor.isActive('strike')}
           title="删除线"
         >
-          S
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('code') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="行内代码"
+              {React.createElement(Strikethrough, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleCode().run())}
+              isActive={editor.isActive('code')}
+              title="行内代码 (Ctrl+`)"
+            >
+              {React.createElement(Code, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
+
+          <ToolbarDivider />
+
+          {/* 对齐方式组 */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().setTextAlign('left').run())}
+              isActive={editor.isActive({ textAlign: 'left' })}
+              title="左对齐"
+            >
+              {React.createElement(AlignLeft, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().setTextAlign('center').run())}
+              isActive={editor.isActive({ textAlign: 'center' })}
+              title="居中对齐"
+            >
+              {React.createElement(AlignCenter, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().setTextAlign('right').run())}
+              isActive={editor.isActive({ textAlign: 'right' })}
+              title="右对齐"
         >
-          {'</>'}
-        </button>
+              {React.createElement(AlignRight, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().setTextAlign('justify').run())}
+              isActive={editor.isActive({ textAlign: 'justify' })}
+              title="两端对齐"
+            >
+              {React.createElement(AlignJustify, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
+
+          <ToolbarDivider />
+
+          {/* 列表组 */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleBulletList().run())}
+              isActive={editor.isActive('bulletList')}
+              title="无序列表 (Ctrl+Shift+8)"
+            >
+              {React.createElement(List, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleOrderedList().run())}
+              isActive={editor.isActive('orderedList')}
+              title="有序列表 (Ctrl+Shift+7)"
+            >
+              {React.createElement(ListOrdered, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
+
+          <ToolbarDivider />
+
+          {/* 块级元素组 */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleBlockquote().run())}
+              isActive={editor.isActive('blockquote')}
+              title="引用块 (Ctrl+Shift+Q)"
+            >
+              {React.createElement(Quote, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().toggleCodeBlock().run())}
+              isActive={editor.isActive('codeBlock')}
+              title="代码块 (Ctrl+Shift+C)"
+            >
+              {React.createElement(Code2, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().setHorizontalRule().run())}
+              title="水平分隔线"
+            >
+              {React.createElement(Minus, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
         
-        {/* 分隔符 */}
-        <span className="border-r h-6 mx-1"></span>
+          <ToolbarDivider />
         
-        {/* 块级格式按钮 */}
-        <button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('bulletList') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="无序列表"
-        >
-          • 列表
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('orderedList') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="有序列表"
-        >
-          1. 列表
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('blockquote') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="引用"
-        >
-          引用
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          className={`px-2 py-1 border rounded ${editor.isActive('codeBlock') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="代码块"
-        >
-          代码块
-        </button>
-        <button
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          className="px-2 py-1 border rounded bg-white dark:bg-gray-800"
-          title="水平线"
-        >
-          —
-        </button>
-        
-        {/* 分隔符 */}
-        <span className="border-r h-6 mx-1"></span>
-        
-        {/* 链接和图片 */}
-        <button
-          onClick={() => {
+          {/* 链接和媒体组 */}
+          <div className="flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => {
             const url = window.prompt('输入链接URL:')
             if (url) {
               editor.chain().focus().setLink({ href: url }).run()
             }
-          }}
-          className={`px-2 py-1 border rounded ${editor.isActive('link') ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-800'}`}
-          title="添加链接"
+              })}
+              isActive={editor.isActive('link')}
+              title="添加链接 (Ctrl+K)"
         >
-          链接
-        </button>
-        <button
-          onClick={() => {
+              {React.createElement(LinkIcon, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => {
             const url = window.prompt('输入图片URL:')
             if (url) {
               editor.chain().focus().setImage({ src: url }).run()
             }
-          }}
-          className="px-2 py-1 border rounded bg-white dark:bg-gray-800"
-          title="添加图片"
-        >
-          图片
-        </button>
-        
-        {/* 撤销/重做 */}
-        <div className="ml-auto flex gap-2">
-          <button
-            onClick={() => editor.chain().focus().undo().run()}
+              })}
+              title="插入图片"
+            >
+              {React.createElement(ImageIcon, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
+
+          {/* 右侧操作组 */}
+          <div className="ml-auto flex items-center gap-1">
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().undo().run())}
             disabled={!editor.can().undo()}
-            className="px-2 py-1 border rounded bg-white dark:bg-gray-800 disabled:opacity-50"
             title="撤销 (Ctrl+Z)"
           >
-            撤销
-          </button>
-          <button
-            onClick={() => editor.chain().focus().redo().run()}
+              {React.createElement(Undo, { className: "w-4 h-4" })}
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={handleToolbarClick(() => editor.chain().focus().redo().run())}
             disabled={!editor.can().redo()}
-            className="px-2 py-1 border rounded bg-white dark:bg-gray-800 disabled:opacity-50"
             title="重做 (Ctrl+Shift+Z)"
           >
-            重做
-          </button>
+              {React.createElement(Redo, { className: "w-4 h-4" })}
+            </ToolbarButton>
+          </div>
         </div>
       </div>
     );
@@ -250,7 +398,7 @@ const TiptapEditor = ({
     <div className={`tiptap-editor flex flex-col h-full ${className}`}>
       {renderToolbar()}
       <div className="flex-1 overflow-auto bg-white dark:bg-gray-800">
-        {editor && <EditorContent editor={editor} className="h-full" />}
+        {editor && React.createElement(EditorContent, { editor, className: "h-full" })}
       </div>
       
       {/* 添加编辑器样式 */}

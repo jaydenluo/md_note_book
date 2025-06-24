@@ -15,9 +15,15 @@ import { ResizablePanel } from './components/ui/ResizablePanel'
 import { Sidebar } from './components/Sidebar'
 import { setupContextMenu, createContextMenu } from '@utils/contextMenu'
 import type { Note } from '@stores/noteStore'
+import { useAlertDialog } from '@/components/ui/alert-dialog'
+import { usePromptDialog } from '@/components/ui/prompt-dialog'
 
 // Lucide 图标组件
 import { Menu, Search, Star, Clock, Share, Settings, Plus } from 'lucide-react'
+// 统一导入自定义SVG图标
+import { FolderIcon, FolderPlusIcon } from '@/components/icons'
+// 下面是需要补充的自定义图标
+import { FilePlusIcon, ChevronRightIcon, ChevronDownIcon, FileTextIcon } from '@/components/icons'
 
 function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
@@ -55,6 +61,7 @@ function App() {
   const createNote = useNotes(state => state.createNote)
   const updateNote = useNotes(state => state.updateNote)
   const createCategory = useCategories(state => state.createCategory)
+  const updateCategory = useCategories(state => state.updateCategory)
   const { isDark, toggleTheme } = useTheme()
   
   // 从tabsStore获取标签相关状态和方法
@@ -72,14 +79,14 @@ function App() {
   const selectedNoteId = activeTab?.noteId || null
 
   // 调试信息
-  console.log('App状态:', {
-    tabs: tabs.map(t => ({ id: t.id, noteId: t.noteId, title: t.title })),
-    activeTabId,
-    selectedNoteId,
-    activeTab: activeTab ? { id: activeTab.id, noteId: activeTab.noteId, title: activeTab.title } : null,
-    selectedCategoryId,
-    totalNotes: notes.length
-  });
+  // console.log('App状态:', {
+  //   tabs: tabs.map(t => ({ id: t.id, noteId: t.noteId, title: t.title })),
+  //   activeTabId,
+  //   selectedNoteId,
+  //   activeTab: activeTab ? { id: activeTab.id, noteId: activeTab.noteId, title: activeTab.title } : null,
+  //   selectedCategoryId,
+  //   totalNotes: notes.length
+  // });
 
   // 从localStorage加载分类ID（仅在组件挂载时执行一次）
   useEffect(() => {
@@ -93,9 +100,6 @@ function App() {
 
   // 筛选笔记
   const filteredNotes = useMemo(() => {
-    // 简化日志
-    console.log('筛选笔记，分类ID:', selectedCategoryId);
-    
     return notes.filter(note => {
       // 分类筛选
       if (selectedCategoryId && note.categoryId !== selectedCategoryId) {
@@ -115,8 +119,8 @@ function App() {
 
   // 监听selectedCategoryId变化
   useEffect(() => {
-    // 简化日志
-    console.log('分类ID变化:', selectedCategoryId);
+    // 当状态值变化时更新ref
+    selectedCategoryIdRef.current = selectedCategoryId;
   }, [selectedCategoryId]);
 
   // 响应式设计
@@ -167,6 +171,23 @@ function App() {
     initData()
   }, [loadCategories, loadNotes, loadTags])
 
+  // 检查并创建默认分类
+  useEffect(() => {
+    // 只在数据初始化完成且分类为空时执行
+    if (isInitialized && categories.length === 0) {
+      console.log('没有找到分类，创建默认分类')
+      const id = createCategory({
+        name: '默认分类'
+      })
+      // 自动选中新创建的分类
+      setSelectedCategoryId(id)
+      // 更新ref
+      selectedCategoryIdRef.current = id
+      // 保存到localStorage
+      localStorage.setItem('selectedCategoryId', id)
+    }
+  }, [isInitialized, categories.length, createCategory])
+
   // 当选中的分类被删除时，重置选中状态
   useEffect(() => {
     // 只在以下情况重置分类ID：
@@ -181,7 +202,7 @@ function App() {
       console.log('选中的分类已被删除，重置选中状态');
       setSelectedCategoryId(null);
     }
-  }, [notes, categories, selectedCategoryId]);
+  }, [notes, categories]); // 移除selectedCategoryId依赖，避免无限循环
 
   // 自动聚焦新分类输入框
   useEffect(() => {
@@ -197,19 +218,10 @@ function App() {
   useEffect(() => {
     // 当状态值变化时更新ref
     selectedCategoryIdRef.current = selectedCategoryId;
-    console.log('selectedCategoryId实际变化为:', selectedCategoryId);
   }, [selectedCategoryId]);
 
   // 创建一个包装过的setSelectedCategoryId函数，用于跟踪状态变化
   const setSelectedCategoryIdWithLogging = (id: string | null) => {
-    // 简洁日志
-    console.log('设置分类ID:', id);
-    
-    // 防止设置相同的值
-    if (id === selectedCategoryId) {
-      return;
-    }
-    
     // 直接保存到localStorage，避免使用useEffect
     if (id) {
       localStorage.setItem('selectedCategoryId', id);
@@ -217,31 +229,37 @@ function App() {
       localStorage.removeItem('selectedCategoryId');
     }
     
-    // 更新状态 - 放在最后执行
+    // 更新状态
     setSelectedCategoryId(id);
     
     // 立即更新ref，以便其他地方可以访问最新值
     selectedCategoryIdRef.current = id;
   };
 
+  // 添加usePromptDialog hook
+  const { showPrompt } = usePromptDialog()
+  const { showAlert, showConfirm } = useAlertDialog()
+
   // 创建笔记
   const handleCreateNote = () => {
+    // 没有选中分类时，弹窗提示
+    if (!selectedCategoryId) {
+      showAlert({
+        title: '提示',
+        description: '请先选择一个分类再新建笔记！'
+      });
+      return;
+    }
     // 添加日志，确认使用了正确的分类ID
     console.log('创建笔记使用的分类ID:', selectedCategoryId);
-    
     const id = createNote({
       title: '新笔记',
       content: '',
       categoryId: selectedCategoryId
     })
-    
     // 创建新标签并激活
-    addTab(id, '新笔记')
-    
-    // 在移动视图中，创建笔记后自动关闭侧边栏
-    if (isMobileView) {
-      setSidebarOpen(false)
-    }
+    addTab(id)
+    activateTab(id)
   }
 
   // 打开笔记
@@ -270,56 +288,130 @@ function App() {
     }
   }
 
-  // 渲染侧边栏内容
-  const renderSidebar = () => (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
-      {/* 搜索框 */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <Search className="h-4 w-4" />
-          </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索笔记..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-none dark:text-white"
-          />
-        </div>
-      </div>
-      
-      {/* 操作按钮 */}
-      <div className="flex p-3 border-b border-gray-200 dark:border-gray-700">
-        <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2 text-gray-600 dark:text-gray-300">
-          <Star className="h-4 w-4" />
-        </button>
-        <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2 text-gray-600 dark:text-gray-300">
-          <Clock className="h-4 w-4" />
-        </button>
-        <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300">
-          <Share className="h-4 w-4" />
-        </button>
-          <button
-          className="flex items-center justify-center p-2 ml-auto bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
-            onClick={toggleTheme}
-        >
-          <Settings className="h-4 w-4" />
-        </button>
-      </div>
-      
-      {/* 使用Sidebar组件显示分类 */}
-      <div className="flex-1 overflow-auto">
-        <Sidebar
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryIdWithLogging}
-        />
-      </div>
-    </div>
-  )
+  // 处理快速创建分类
+  const handleQuickCreateCategory = async () => {
+    // 创建一个默认名称的分类
+    const defaultName = `新分类 ${categories.length + 1}`;
+    const id = createCategory({
+      name: defaultName
+    });
+    
+    // 自动选中新创建的分类
+    setSelectedCategoryId(id);
+    // 更新ref
+    selectedCategoryIdRef.current = id;
+    // 保存到localStorage
+    localStorage.setItem('selectedCategoryId', id);
+    
+    // 确保侧边栏在移动视图下是打开的，这样用户可以看到并编辑新创建的分类
+    if (isMobileView) {
+      setSidebarOpen(true);
+    }
+  };
 
-  // 渲染笔记列表
-  const renderNoteList = () => (
+  // 拖拽相关状态
+  const [dragNoteId, setDragNoteId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
+  // 拖拽事件处理
+  const handleDragStart = (noteId: string) => {
+    setDragNoteId(noteId);
+  };
+  const handleDragEnd = () => {
+    setDragNoteId(null);
+    setDragOverFolderId(null);
+  };
+  const handleDragOverFolder = (folderId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverFolderId(folderId);
+  };
+  const handleDropOnFolder = async (folderId: string) => {
+    if (dragNoteId && dragNoteId !== folderId) {
+      // 只允许普通笔记拖到目录
+      const note = notes.find(n => n.id === dragNoteId);
+      if (note && note.type !== 'folder') {
+        await updateNote(dragNoteId, { parentId: folderId });
+      }
+    }
+    setDragNoteId(null);
+    setDragOverFolderId(null);
+  };
+  // 拖到根目录
+  const handleDropOnRoot = async () => {
+    if (dragNoteId) {
+      const note = notes.find(n => n.id === dragNoteId);
+      if (note && note.type !== 'folder') {
+        await updateNote(dragNoteId, { parentId: null });
+      }
+    }
+    setDragNoteId(null);
+    setDragOverFolderId(null);
+  };
+
+  // 新建文档
+  const handleCreateDoc = () => {
+    const id = createNote({
+      title: '新文档',
+      content: '',
+      categoryId: selectedCategoryId,
+      type: 'doc',
+      parentId: dragOverFolderId && dragOverFolderId !== 'root' ? dragOverFolderId : null
+    });
+    setSelectedNoteId(id);
+  };
+  // 新建目录
+  const handleCreateFolder = () => {
+    const id = createNote({
+      title: '新目录',
+      content: '',
+      categoryId: selectedCategoryId,
+      type: 'folder',
+      parentId: null
+    });
+    // 可选：新建后自动进入重命名状态（如有重命名逻辑）
+  };
+
+  // 目录折叠状态
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
+  // 目录重命名状态
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
+  const editFolderInputRef = useRef<HTMLInputElement>(null);
+
+  // 目录点击切换折叠
+  const handleFolderClick = (folderId: string) => {
+    setCollapsedFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
+  };
+  // 目录双击重命名
+  const handleFolderDoubleClick = (folder: any) => {
+    setEditingFolderId(folder.id);
+    setEditingFolderName(folder.title);
+    setTimeout(() => editFolderInputRef.current?.focus(), 0);
+  };
+  // 保存目录名
+  const handleFolderNameSave = async (folderId: string) => {
+    if (editingFolderName.trim()) {
+      await updateNote(folderId, { title: editingFolderName.trim() });
+    }
+    setEditingFolderId(null);
+    setEditingFolderName('');
+  };
+
+  // 修改renderNoteList，拖拽时才显示"拖到这里可放到根目录"
+  const renderNoteList = () => {
+    // 顶层目录和未归属目录的笔记
+    const folders = filteredNotes.filter(n => n.type === 'folder' && !n.parentId);
+    const rootDocs = filteredNotes.filter(n => n.type !== 'folder' && !n.parentId);
+    // 目录下的笔记
+    const notesByParent: Record<string, typeof filteredNotes> = {};
+    filteredNotes.forEach(n => {
+      if (n.parentId) {
+        if (!notesByParent[n.parentId]) notesByParent[n.parentId] = [];
+        notesByParent[n.parentId].push(n);
+      }
+    });
+
+    return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800">
       {/* 笔记列表头部 */}
       <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -328,77 +420,135 @@ function App() {
             ? `${categories.find(c => c.id === selectedCategoryId)?.name || '未知分类'} (${filteredNotes.length})`
             : `所有笔记 (${filteredNotes.length})`}
         </h2>
+          <div className="flex space-x-2">
         <button 
-          onClick={handleCreateNote}
+              onClick={handleCreateDoc}
           className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-        >
-          <Plus className="h-4 w-4" />
+              title="新建文档"
+            >
+              {/* 使用自定义文档加号图标 FilePlusIcon 作为新建文档按钮图标 */}
+              <FilePlusIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleCreateFolder}
+              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-300"
+              title="新建目录"
+            >
+              <FolderPlusIcon className="h-5 w-5" />
         </button>
       </div>
-      
-      {/* 笔记列表 */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredNotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full p-4 text-gray-500 dark:text-gray-400">
-            <svg className="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="text-center">
-              {selectedCategoryId 
-                  ? '此分类下还没有笔记' 
-                  : '开始创建你的第一个笔记吧'}
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredNotes.map(note => (
-              <button
-                key={note.id}
-                onClick={() => handleOpenNote(note.id)}
-                onContextMenu={(e) => handleNoteContextMenu(e, note)}
-                className={`w-full p-3 text-left ${
-                  selectedNoteId === note.id 
-                    ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' 
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <h3 className="font-medium truncate dark:text-white">{note.title || '无标题'}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate line-clamp-2">
-                  {note.content || '空笔记'}
-                </p>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {new Date(note.updatedAt).toLocaleDateString()}
-                </div>
-              </button>
-            ))}
+        </div>
+        {/* 拖到根目录区域，仅在拖拽时显示 */}
+        {dragNoteId && (
+          <div
+            className={`p-2 text-xs text-center cursor-pointer ${dragOverFolderId === 'root' ? 'bg-blue-100 dark:bg-blue-900' : ''}`}
+            onDragOver={e => { e.preventDefault(); setDragOverFolderId('root'); }}
+            onDrop={handleDropOnRoot}
+            onDragLeave={() => setDragOverFolderId(null)}
+          >
+            拖到这里可放到根目录
           </div>
         )}
+        {/* 目录 */}
+        {folders.map(folder => (
+          <div
+            key={folder.id}
+            className={`group border-b dark:border-gray-700 ${dragOverFolderId === folder.id ? 'bg-blue-100 dark:bg-blue-900' : ''}`}
+            onDragOver={e => handleDragOverFolder(folder.id, e)}
+            onDrop={() => handleDropOnFolder(folder.id)}
+            onDragLeave={() => setDragOverFolderId(null)}
+          >
+            <div
+              className="flex items-center px-4 py-2 cursor-pointer select-none"
+              onClick={() => handleFolderClick(folder.id)}
+              onDoubleClick={() => handleFolderDoubleClick(folder)}
+            >
+              {/* 折叠icon动画 */}
+              <span className="transition-transform duration-200 mr-1">
+                {/* 使用自定义Chevron图标 */}
+                {collapsedFolders[folder.id] ? <ChevronRightIcon size={16} /> : <ChevronDownIcon size={16} />}
+              </span>
+              <FolderIcon className="w-4 h-4 mr-2 text-blue-500" />
+              {editingFolderId === folder.id ? (
+                <input
+                  ref={editFolderInputRef}
+                  value={editingFolderName}
+                  onChange={e => setEditingFolderName(e.target.value)}
+                  onBlur={() => handleFolderNameSave(folder.id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleFolderNameSave(folder.id);
+                    if (e.key === 'Escape') { setEditingFolderId(null); setEditingFolderName(''); }
+                  }}
+                  className="px-2 py-1 rounded border border-blue-400 outline-none w-28 text-sm"
+                  autoFocus
+                />
+              ) : (
+                <span className="font-semibold text-blue-700 dark:text-blue-300 truncate text-sm">{folder.title}</span>
+              )}
+              {/* 目录右侧新建文件按钮，右对齐 */}
+              <button
+                className="ml-auto p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
+                title="在此目录下新建文档"
+                onClick={e => {
+                  e.stopPropagation();
+                  // 新建文档到当前目录下
+                  const id = createNote({
+                    title: '新文档',
+                    content: '',
+                    categoryId: selectedCategoryId,
+                    type: 'doc',
+                    parentId: folder.id
+                  });
+                  // 自动打开新建文档
+                  addTab(id);
+                  activateTab(id);
+                }}
+              >
+                <FilePlusIcon className="w-4 h-4" />
+              </button>
+            </div>
+            {/* 目录下的笔记，折叠时隐藏，有动画 */}
+            <div
+              className={`pl-8 overflow-hidden transition-all duration-300 ${collapsedFolders[folder.id] ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'}`}
+              style={{ pointerEvents: collapsedFolders[folder.id] ? 'none' : 'auto' }}
+            >
+              {(notesByParent[folder.id] || []).map(note => (
+                <button
+                  key={note.id}
+                  draggable
+                  onDragStart={() => handleDragStart(note.id)}
+                  onDragEnd={handleDragEnd}
+                  onClick={() => handleOpenNote(note.id)}
+                  onContextMenu={e => handleNoteContextMenu(e, note)}
+                  className={`w-full p-2 text-left flex items-center gap-2 rounded text-sm ${selectedNoteId === note.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  <FileTextIcon className="w-4 h-4 text-gray-400" />
+                  <span className="truncate">{note.title || '无标题'}</span>
+              </button>
+            ))}
+            </div>
+          </div>
+        ))}
+        {/* 顶层普通笔记 */}
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {rootDocs.map(note => (
+            <button
+              key={note.id}
+              draggable
+              onDragStart={() => handleDragStart(note.id)}
+              onDragEnd={handleDragEnd}
+              onClick={() => handleOpenNote(note.id)}
+              onContextMenu={e => handleNoteContextMenu(e, note)}
+              className={`w-full p-3 text-left flex items-center gap-2 text-sm ${selectedNoteId === note.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            >
+              <FileTextIcon className="w-4 h-4 text-gray-400" />
+              {/* 根目录文档标题字体与目录下文档一致，均为text-sm */}
+              <span className="truncate">{note.title || '无标题'}</span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
-  )
-
-  // 处理笔记右键菜单
-  const handleNoteContextMenu = (e: React.MouseEvent, note: Note) => {
-    e.preventDefault();
-    
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    createContextMenu(x, y, [
-      {
-        label: '打开',
-        onClick: () => handleOpenNote(note.id)
-      },
-      {
-        label: '删除',
-        onClick: () => {
-          if (confirm(`确定要删除笔记 "${note.title || '无标题'}" 吗？`)) {
-            // 这里需要调用deleteNote函数
-            console.log('删除笔记:', note.id);
-          }
-        }
-      }
-    ]);
+    );
   };
 
   // 渲染笔记内容区域（包含标签）
@@ -464,6 +614,52 @@ function App() {
     console.log('========== 调试结束 ==========');
   };
 
+  // 恢复原来的renderSidebar内容
+  const renderSidebar = () => (
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
+      {/* 搜索框 */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <Search className="h-4 w-4" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜索笔记..."
+            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-none dark:text-white"
+          />
+        </div>
+      </div>
+      {/* 操作按钮 */}
+      <div className="flex p-3 border-b border-gray-200 dark:border-gray-700">
+        <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2 text-gray-600 dark:text-gray-300">
+          <Star className="h-4 w-4" />
+        </button>
+        <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2 text-gray-600 dark:text-gray-300">
+          <Clock className="h-4 w-4" />
+        </button>
+        <button className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300">
+          <Share className="h-4 w-4" />
+        </button>
+        <button
+          className="flex items-center justify-center p-2 ml-auto bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
+          onClick={toggleTheme}
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+      </div>
+      {/* 分类列表 */}
+      <div className="flex-1 overflow-auto">
+        <Sidebar
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryIdWithLogging}
+        />
+      </div>
+    </div>
+  );
+
   // 加载动画
   if (isLoading) {
     return (
@@ -524,7 +720,7 @@ function App() {
             minWidth={220}
               maxWidth={500}
               direction="right"
-              className="border-r border-gray-200 dark:border-gray-700"
+              className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
           >
             {renderNoteList()}
           </ResizablePanel>

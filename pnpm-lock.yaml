@@ -89,6 +89,12 @@ dependencies:
   '@tiptap/extension-placeholder':
     specifier: ^2.22.3
     version: 2.22.3(@tiptap/core@2.22.3)(@tiptap/pm@2.22.3)
+  '@tiptap/extension-text-align':
+    specifier: ^2.22.3
+    version: 2.22.3(@tiptap/core@2.22.3)
+  '@tiptap/extension-underline':
+    specifier: ^2.22.3
+    version: 2.22.3(@tiptap/core@2.22.3)
   '@tiptap/pm':
     specifier: ^2.22.3
     version: 2.22.3
@@ -3335,6 +3341,14 @@ packages:
       '@tiptap/core': 2.22.3(@tiptap/pm@2.22.3)
     dev: false
 
+  /@tiptap/extension-text-align@2.22.3(@tiptap/core@2.22.3):
+    resolution: {integrity: sha512-UZ8803BOrHLHSNFfooqgkm2AQsaK/7eE1deQGSazxft89KksAv1kZkEKFypOE8yw85Bg2NHH2Lp6n4tyz2n6/g==}
+    peerDependencies:
+      '@tiptap/core': ^2.7.0
+    dependencies:
+      '@tiptap/core': 2.22.3(@tiptap/pm@2.22.3)
+    dev: false
+
   /@tiptap/extension-text-style@2.22.3(@tiptap/core@2.22.3):
     resolution: {integrity: sha512-M3FLOUPcO8fR+rM97mR2gQ54KFkdlAUQtEPKQpO1f312gtcVdBNxgq0WgqTnBY7thWLyqQSKiAsL6y88+JddSA==}
     peerDependencies:
@@ -3345,6 +3359,14 @@ packages:
 
   /@tiptap/extension-text@2.22.3(@tiptap/core@2.22.3):
     resolution: {integrity: sha512-07cymWkPTfq6nuum88Yf90YYArbowed8nNiu0Tw3jCvwpzf9J9TDaovT+LAKuSKtrOsnNpFB/9IqUwFxZepOGw==}
+    peerDependencies:
+      '@tiptap/core': ^2.7.0
+    dependencies:
+      '@tiptap/core': 2.22.3(@tiptap/pm@2.22.3)
+    dev: false
+
+  /@tiptap/extension-underline@2.22.3(@tiptap/core@2.22.3):
+    resolution: {integrity: sha512-floLjh1UbQ2pKgdwfw7qCAJ5VojvH1uqj7xW2RCv79aWYUuJCPD6UBpaBOt/jv7gXDJJ9EeV3m2Hga49CXBrEQ==}
     peerDependencies:
       '@tiptap/core': ^2.7.0
     dependencies:
