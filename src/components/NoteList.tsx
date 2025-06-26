@@ -135,80 +135,77 @@ export const NoteList: FC<NoteListProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b dark:border-gray-700">
-        <div className="relative mb-4">
-          <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+      <div className="py-0 px-3 h-9 border-b dark:border-gray-700 flex items-center">
+        <div className="relative flex-1 mr-2">
+          <Search size={16} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             ref={searchInputRef}
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="搜索笔记..."
-            className="w-full pl-10 pr-10 py-2 border rounded-lg bg-transparent dark:border-gray-600 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            className="w-full h-7 pl-8 pr-8 py-1 border rounded-md bg-transparent dark:border-gray-600 dark:bg-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm"
           />
           {searchTerm && (
             <button 
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           )}
         </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as any)}
+          className="h-7 text-xs border rounded px-2 py-1 bg-transparent dark:border-gray-600 dark:bg-gray-800"
+        >
+          <option value="updated">最近更新</option>
+          <option value="created">创建时间</option>
+          <option value="title">标题</option>
+        </select>
+      </div>
 
-        <div className="flex flex-wrap gap-2 mb-4 max-h-20 overflow-y-auto scrollbar-thin">
-          <AnimatePresence>
-            {tags.map(tag => (
-              <motion.button
-                key={tag.id}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSelectedTagId(
-                  selectedTagId === tag.id ? null : tag.id
-                )}
-                className={`inline-flex items-center px-2 py-1 rounded-full text-sm ${
-                  tag.color
-                } ${
-                  selectedTagId === tag.id
-                    ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-blue-400'
-                    : ''
-                }`}
-              >
-                <Tag size={12} className="mr-1" />
-                {tag.name}
-              </motion.button>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            {displayedNotes.length} 个笔记
-          </div>
-          <div className="flex items-center space-x-2">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="text-sm border rounded px-2 py-1 bg-transparent dark:border-gray-600 dark:bg-gray-800"
+      <div className="flex flex-wrap gap-2 p-3 border-b dark:border-gray-700 max-h-14 overflow-y-auto scrollbar-thin">
+        <AnimatePresence>
+          {tags.map(tag => (
+            <motion.button
+              key={tag.id}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setSelectedTagId(
+                selectedTagId === tag.id ? null : tag.id
+              )}
+              className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                tag.color
+              } ${
+                selectedTagId === tag.id
+                  ? 'ring-2 ring-offset-1 ring-blue-500 dark:ring-blue-400'
+                  : ''
+              }`}
             >
-              <option value="updated">最近更新</option>
-              <option value="created">创建时间</option>
-              <option value="title">标题</option>
-            </select>
-          </div>
-        </div>
+              <Tag size={10} className="mr-1" />
+              {tag.name}
+            </motion.button>
+          ))}
+        </AnimatePresence>
+      </div>
 
+      <div className="flex items-center justify-between px-3 py-2 border-b dark:border-gray-700">
+        <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          {displayedNotes.length} 个笔记
+        </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleCreateNote}
           disabled={!categoryId}
-          className="w-full flex items-center justify-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs"
         >
-          <Plus size={16} className="mr-2" />
+          <Plus size={14} className="mr-1" />
           新建笔记
         </motion.button>
       </div>

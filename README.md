@@ -62,6 +62,7 @@ pnpm install
 
 # 启动开发服务器
 pnpm run dev
+pnpm tauri dev
 ```
 
 ### 生产环境
@@ -162,3 +163,8 @@ macOS 需要安装 Xcode Command Line Tools
 - **全部都免费且开源**，可放心商用和二次开发。
 
 如需具体某个编辑器的集成方案或效果演示，可以指定一个，我可以帮你详细介绍或给出代码示例！
+
+
+
+默认features: common-controls-v6、compression、wry
+与窗口相关的features: macos-private-api、devtools、tray-icon 等

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Menu, ChevronDown } from 'lucide-react';
+import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTabs } from '@stores/tabsStore';
 import { cn } from '@utils/cn';
@@ -14,17 +14,17 @@ interface TabManagerProps {
   activeTabId: string | null;
   onTabChange: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
-  onTabCloseOthers: (tabId: string) => void;
   onTabCloseAll: () => void;
+  onTabActivate?: (noteId: string) => Promise<void>;
 }
 
 export const TabManager = ({
   activeTabId,
   onTabChange,
   onTabClose,
-  onTabCloseOthers,
-  onTabCloseAll
-}: TabManagerProps): JSX.Element => {
+  onTabCloseAll,
+  onTabActivate
+}: TabManagerProps) => {
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -133,7 +133,7 @@ export const TabManager = ({
   };
   
   // 右键菜单处理
-  const handleContextMenu = (e: React.MouseEvent, tabId: string) => {
+  const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     // 这里可以实现右键菜单，但为了简单起见，我们使用常规按钮
   };
@@ -179,11 +179,20 @@ export const TabManager = ({
                 activeTabId === tab.id ? "bg-gray-100 dark:bg-gray-700" : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
               )}
               data-tab-id={tab.id}
-              onContextMenu={(e) => handleContextMenu(e, tab.id)}
+              onContextMenu={(e) => handleContextMenu(e)}
             >
               <button 
-                className="flex-1 truncate text-left text-sm"
-                onClick={() => onTabChange(tab.id)}
+                className="flex-1 truncate text-left text-sm min-w-0"
+                onClick={() => {
+                  onTabChange(tab.id);
+                  // 如果提供了激活回调，则调用它以加载笔记内容
+                  if (onTabActivate && tab.noteId) {
+                    onTabActivate(tab.noteId).catch(err => {
+                      console.error(`加载笔记内容失败 (ID: ${tab.noteId}):`, err);
+                    });
+                  }
+                }}
+                title={tab.title || "无标题"}
               >
                 {tab.title || "无标题"}
               </button>
@@ -250,7 +259,7 @@ export const TabManager = ({
                     setShowDropdown(false);
                   }}
                 >
-                  <span className="truncate text-sm">{tab.title || "无标题"}</span>
+                  <span className="truncate text-sm max-w-[160px] inline-block" title={tab.title || "无标题"}>{tab.title || "无标题"}</span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -272,7 +281,7 @@ export const TabManager = ({
       {/* 关闭所有标签按钮 */}
       <button
         onClick={onTabCloseAll}
-        className="p-1 ml-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+        className="p-2 ml-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
         title="关闭所有标签"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

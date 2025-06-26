@@ -5,6 +5,7 @@ import { useCategories } from '@stores/categoryStore'
 import { useNotes } from '@stores/noteStore'
 import { useTags } from '@stores/tagStore'
 import { useTabs } from '@stores/tabsStore'
+import { useConfig } from '@stores/configStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '@utils/theme'
 import { debounce } from '@utils/debounce'
@@ -19,11 +20,31 @@ import { useAlertDialog } from '@/components/ui/alert-dialog'
 import { usePromptDialog } from '@/components/ui/prompt-dialog'
 
 // Lucide 图标组件
-import { Menu, Search, Star, Clock, Share, Settings, Plus } from 'lucide-react'
+import { Search, Star, Clock, Share, Settings, Plus } from 'lucide-react'
 // 统一导入自定义SVG图标
 import { FolderIcon, FolderPlusIcon } from '@/components/icons'
 // 下面是需要补充的自定义图标
 import { FilePlusIcon, ChevronRightIcon, ChevronDownIcon, FileTextIcon } from '@/components/icons'
+
+// 自定义菜单图标
+const MenuIcon = ({ className, size = 16 }: { className?: string; size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
 
 function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
@@ -35,6 +56,9 @@ function App() {
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768)
+  
+  // 自动保存定时器
+  const autoSaveTimerRef = useRef<number | null>(null)
   
   // 添加右键菜单状态
   const [contextMenu, setContextMenu] = useState<{
@@ -55,6 +79,7 @@ function App() {
 
   const loadCategories = useCategories(state => state.loadCategories)
   const loadNotes = useNotes(state => state.loadNotes)
+  const loadNoteContent = useNotes(state => state.loadNoteContent)
   const loadTags = useTags(state => state.loadTags)
   const notes = useNotes(state => state.notes)
   const categories = useCategories(state => state.categories)
@@ -63,6 +88,9 @@ function App() {
   const createCategory = useCategories(state => state.createCategory)
   const updateCategory = useCategories(state => state.updateCategory)
   const { isDark, toggleTheme } = useTheme()
+  
+  // 获取配置
+  const { config } = useConfig()
   
   // 从tabsStore获取标签相关状态和方法
   const tabs = useTabs(state => state.tabs)
@@ -77,6 +105,9 @@ function App() {
   // 获取当前活动的笔记ID
   const activeTab = tabs.find(tab => tab.id === activeTabId)
   const selectedNoteId = activeTab?.noteId || null
+
+  // 获取当前编辑的笔记
+  const currentNote = selectedNoteId ? notes.find(note => note.id === selectedNoteId) : null
 
   // 调试信息
   // console.log('App状态:', {
@@ -151,20 +182,57 @@ function App() {
     const initData = async () => {
       setIsLoading(true)
       try {
+        console.log('开始初始化应用数据...');
         await storage.init()
+        console.log('存储服务初始化完成');
         
         // 加载数据
-        await Promise.all([
-          loadCategories(),
-          loadNotes(),
-          loadTags()
-        ])
+        console.log('开始加载分类、笔记和标签数据...');
+        
+        try {
+          console.log('加载分类数据...');
+          await loadCategories();
+          console.log('分类数据加载完成');
+        } catch (error) {
+          console.error('加载分类数据失败:', error);
+        }
+        
+        try {
+          console.log('加载笔记数据...');
+          await loadNotes();
+          
+          // 获取加载的笔记数据并打印日志
+          const currentNotes = useNotes.getState().notes;
+          console.log(`笔记数据加载完成，共 ${currentNotes.length} 条笔记`);
+          
+          // 打印每条笔记的基本信息
+          if (currentNotes.length > 0) {
+            console.log('笔记列表:');
+            currentNotes.forEach((note, index) => {
+              console.log(`[${index}] ID: ${note.id}, 标题: ${note.title}, 分类ID: ${note.categoryId}, 内容: ${note.content}`);
+            });
+          } else {
+            console.warn('没有找到任何笔记数据');
+          }
+        } catch (error) {
+          console.error('加载笔记数据失败:', error);
+        }
+        
+        try {
+          console.log('加载标签数据...');
+          await loadTags();
+          console.log('标签数据加载完成');
+        } catch (error) {
+          console.error('加载标签数据失败:', error);
+        }
         
         setIsInitialized(true)
+        console.log('应用数据初始化完成');
       } catch (error) {
         console.error('初始化数据失败:', error)
       } finally {
         setIsLoading(false)
+        console.log('数据加载状态已更新: isLoading = false');
       }
     }
     
@@ -240,24 +308,42 @@ function App() {
   const { showPrompt } = usePromptDialog()
   const { showAlert, showConfirm } = useAlertDialog()
 
-  // 创建新笔记
+  // 新建普通笔记
   const handleCreateNote = () => {
     const id = createNote({
       title: '新笔记',
       content: '',
       categoryId: selectedCategoryId
     })
-    // 创建新标签并激活
+    
+    // 创建新标签并激活，但不尝试加载内容（因为是新笔记）
     addTab(id, '新笔记')
     activateTab(id)
   }
 
   // 打开笔记
   const handleOpenNote = (noteId: string) => {
+    console.log(`尝试打开笔记 ID: ${noteId}`);
+    
     const note = notes.find(n => n.id === noteId);
     if (note) {
-      // 添加标签并激活
-      addTab(noteId, note.title);
+      console.log(`找到笔记: 标题 = ${note.title}, 分类 = ${note.categoryId}, 内容长度 = ${note.content?.length || 0}字符`);
+      
+      // 检查是否已有该笔记的标签
+      const existingTab = getTabByNoteId(noteId);
+      
+      if (existingTab) {
+        // 如果已有标签，则只切换到该标签
+        console.log(`笔记 ${noteId} 已有打开的标签，切换到标签: ${existingTab.id}`);
+        activateTab(existingTab.id);
+      } else {
+        // 如果没有标签，则创建新标签
+        console.log(`为笔记 ${noteId} 创建新标签`);
+        addTab(noteId, note.title);
+        // 不再调用 loadNoteContent(noteId)
+      }
+    } else {
+      console.error(`找不到ID为 ${noteId} 的笔记`);
     }
     
     // 在移动视图中，打开笔记后自动关闭侧边栏
@@ -406,12 +492,25 @@ function App() {
     return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800">
       {/* 笔记列表头部 */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h2 className="font-medium dark:text-white">
+      <div className="h-9 py-0 px-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div className="flex">
+      <button 
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+            <MenuIcon className="h-5 w-5" />
+            </button>
+        <h2 className="font-medium dark:text-white truncate max-w-[150px]" title={selectedCategoryId 
+            ? `${categories.find(c => c.id === selectedCategoryId)?.name || '未知分类'} (${filteredNotes.length})`
+            : `所有笔记 (${filteredNotes.length})`}>
           {selectedCategoryId 
             ? `${categories.find(c => c.id === selectedCategoryId)?.name || '未知分类'} (${filteredNotes.length})`
             : `所有笔记 (${filteredNotes.length})`}
         </h2>
+
+
+      </div>
+
           <div className="flex space-x-2">
         <button 
               onClick={handleCreateDoc}
@@ -419,14 +518,14 @@ function App() {
               title="新建文档"
             >
               {/* 使用自定义文档加号图标 FilePlusIcon 作为新建文档按钮图标 */}
-              <FilePlusIcon className="h-5 w-5" />
+              <FilePlusIcon className="h-4 w-4" />
             </button>
             <button
               onClick={handleCreateFolder}
               className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-300"
               title="新建目录"
             >
-              <FolderPlusIcon className="h-5 w-5" />
+              <FolderPlusIcon className="h-4 w-4" />
         </button>
       </div>
         </div>
@@ -475,7 +574,7 @@ function App() {
                   autoFocus
                 />
               ) : (
-                <span className="font-semibold text-blue-700 dark:text-blue-300 truncate text-sm">{folder.title}</span>
+                <span className="font-semibold text-blue-700 dark:text-blue-300 truncate max-w-[120px] inline-block text-sm" title={folder.title}>{folder.title}</span>
               )}
               {/* 目录右侧新建文件按钮，右对齐 */}
               <button
@@ -514,8 +613,8 @@ function App() {
                   onContextMenu={e => handleNoteContextMenu(e, note)}
                   className={`w-full p-2 text-left flex items-center gap-2 rounded text-sm ${selectedNoteId === note.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                 >
-                  <FileTextIcon className="w-4 h-4 text-gray-400" />
-                  <span className="truncate">{note.title || '无标题'}</span>
+                  <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="truncate max-w-[180px] inline-block" title={note.title || '无标题'}>{note.title || '无标题'}</span>
               </button>
             ))}
             </div>
@@ -533,9 +632,9 @@ function App() {
               onContextMenu={e => handleNoteContextMenu(e, note)}
               className={`w-full p-3 text-left flex items-center gap-2 text-sm ${selectedNoteId === note.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
             >
-              <FileTextIcon className="w-4 h-4 text-gray-400" />
+              <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
               {/* 根目录文档标题字体与目录下文档一致，均为text-sm */}
-              <span className="truncate">{note.title || '无标题'}</span>
+              <span className="truncate max-w-[180px] inline-block" title={note.title || '无标题'}>{note.title || '无标题'}</span>
             </button>
           ))}
         </div>
@@ -545,45 +644,42 @@ function App() {
 
   // 渲染笔记内容区域（包含标签）
   const renderNoteContent = () => (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
-      {/* 标签栏 */}
-      {tabs.length > 0 ? (
-        <TabManager 
-          activeTabId={activeTabId}
-          onTabChange={activateTab}
-          onTabClose={closeTab}
-          onTabCloseOthers={closeOtherTabs}
-          onTabCloseAll={closeAllTabs}
-        />
-      ) : (
-        <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="font-medium dark:text-white">无打开的笔记</h2>
-          <button 
-            onClick={handleCreateNote}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-      
-      {/* 笔记内容 */}
-      <div className="flex-1 overflow-hidden">
-        {selectedNoteId ? (
-          <NoteTab noteId={selectedNoteId} key={selectedNoteId} />
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      <TabManager 
+        activeTabId={activeTabId}
+        onTabChange={activateTab}
+        onTabClose={closeTab}
+        onTabCloseAll={closeAllTabs}
+        onTabActivate={handleTabActivate}
+      />
+      <div className="flex-1 overflow-auto">
+        {!selectedNoteId ? (
+          // 优化空态界面：美观居中，图标+主副标题+按钮
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+            <div className="mb-6">
+              {/* 更大更美观的图标 */}
+              <span className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-50 dark:bg-blue-900/40 shadow-lg mb-4">
+                <svg width="56" height="56" fill="none" viewBox="0 0 56 56"><rect width="56" height="56" rx="16" fill="#3B82F6" fillOpacity="0.08"/><path d="M16 20a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V20Z" fill="#3B82F6" fillOpacity="0.15"/><rect x="20" y="24" width="16" height="2.5" rx="1.25" fill="#3B82F6"/><rect x="20" y="29" width="10" height="2.5" rx="1.25" fill="#3B82F6"/></svg>
+              </span>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold mb-2 text-gray-700 dark:text-gray-200">没有笔记被打开</div>
+              <div className="text-base mb-6 text-gray-500 dark:text-gray-400">请选择左侧的笔记，或新建一篇笔记开始记录。</div>
+              <button
+                onClick={handleCreateNote}
+                className="px-6 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-medium shadow transition-colors"
+              >
+                + 创建新笔记
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
-            <h2 className="text-xl font-medium mb-2">选择或创建一个笔记</h2>
-            <p className="text-center max-w-md">
-              从左侧选择一个笔记开始编辑，或者创建一个新的笔记。
-            </p>
-            <button 
-              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center"
-              onClick={handleCreateNote}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              创建新笔记
-            </button>
+          // 直接渲染NoteTab，不要用Promise或异步
+          <div className="h-full">
+            {(() => {
+              const activeTab = tabs.find(tab => tab.id === activeTabId);
+              return activeTab ? (<NoteTab noteId={activeTab.noteId} />) : null;
+            })()}
           </div>
         )}
       </div>
@@ -652,6 +748,73 @@ function App() {
     </div>
   );
 
+  // 设置自动保存
+  useEffect(() => {
+    // 清除之前的定时器
+    if (autoSaveTimerRef.current) {
+      window.clearInterval(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    
+    // 如果自动保存间隔大于0，则设置定时器
+    if (config.autoSaveInterval > 0) {
+      autoSaveTimerRef.current = window.setInterval(() => {
+        // 只有当有选中的笔记时才保存
+        if (selectedNoteId && currentNote) {
+          // 获取当前编辑器内容
+          const titleInput = titleInputRef.current;
+          const contentTextarea = contentTextareaRef.current;
+          
+          if (titleInput || contentTextarea) {
+            setIsSaving(true);
+            
+            // 构建要更新的数据
+            const updateData: any = {};
+            
+            // 如果标题输入框存在且值发生变化
+            if (titleInput && titleInput.value !== currentNote.title) {
+              updateData.title = titleInput.value;
+            }
+            
+            // 如果内容文本框存在且值发生变化
+            if (contentTextarea && contentTextarea.value !== currentNote.content) {
+              updateData.content = contentTextarea.value;
+            }
+            
+            // 只有当有数据需要更新时才调用更新
+            if (Object.keys(updateData).length > 0) {
+              console.log(`自动保存笔记 (ID: ${selectedNoteId})`);
+              updateNote(selectedNoteId, updateData)
+                .finally(() => {
+                  setIsSaving(false);
+                });
+            } else {
+              setIsSaving(false);
+            }
+          }
+        }
+      }, config.autoSaveInterval); // 单位已经是毫秒
+    }
+    
+    // 组件卸载时清除定时器
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearInterval(autoSaveTimerRef.current);
+      }
+    };
+  }, [config.autoSaveInterval, selectedNoteId, currentNote, updateNote]);
+
+  // 处理标签激活时加载笔记内容
+  const handleTabActivate = async (noteId: string): Promise<void> => {
+    // 检查是否为刚刚创建的新笔记，如果是则跳过加载
+    const note = notes.find(n => n.id === noteId);
+    const isNewNote = note && note.createdAt.getTime() > Date.now() - 5000; // 5秒内创建的视为新笔记
+    
+    if (!isNewNote) {
+      await loadNoteContent(noteId);
+    }
+  }
+
   // 加载动画
   if (isLoading) {
     return (
@@ -668,59 +831,39 @@ function App() {
   if (!isMobileView) {
     return (
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-        {/* 顶部导航栏 - 固定在顶部 */}
-        <div className="fixed top-0 left-0 right-0 h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 z-10">
-            <button 
-              className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+        {/* 侧边栏 */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <ResizablePanel
+              id="sidebar-panel"
+              defaultWidth={250}
+              minWidth={200}
+              maxWidth={400}
+              direction="left"
+              className="h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-20"
             >
-            <Menu className="h-5 w-5" />
-            </button>
-            <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
-            <button 
-              className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded"
-              onClick={debugAppState}
-            >
-              调试
-            </button>
-          </div>
-          
-        {/* 内容区域 - 添加顶部边距避开导航栏 */}
-        <div className="flex w-full mt-12">
-          {/* 侧边栏 */}
-          <AnimatePresence>
-            {sidebarOpen && (
-              <ResizablePanel
-                id="sidebar-panel"
-                defaultWidth={250}
-                minWidth={200}
-                maxWidth={400}
-                direction="right"
-                className="h-[calc(100vh-48px)] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
-              >
-                {renderSidebar()}
-              </ResizablePanel>
-            )}
-          </AnimatePresence>
-          
-          {/* 主内容区 */}
-          <div className="flex flex-1 h-[calc(100vh-48px)]">
+              {renderSidebar()}
+            </ResizablePanel>
+          )}
+        </AnimatePresence>
+        
+        {/* 主内容区 */}
+        <div className="flex flex-1 h-screen">
           {/* 笔记列表 */}
           <ResizablePanel
-              id="note-list-panel"
-            defaultWidth={280}
-            minWidth={220}
-              maxWidth={500}
-              direction="right"
-              className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            id="note-list-panel"
+            defaultWidth={320}
+            minWidth={280}
+            maxWidth={500}
+            direction="left"
+            className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10"
           >
             {renderNoteList()}
           </ResizablePanel>
           
           {/* 笔记内容 */}
-            <div className="flex-1">
+          <div className="flex-1">
             {renderNoteContent()}
-            </div>
           </div>
         </div>
       </div>
@@ -730,17 +873,6 @@ function App() {
   // 移动布局
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
-      {/* 顶部导航栏 */}
-      <header className="h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4">
-        <button 
-          className="mr-4 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-          onClick={() => setSidebarOpen(true)}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <h1 className="text-lg font-bold dark:text-white">笔记本</h1>
-      </header>
-      
       {/* 侧边栏 - 移动端抽屉 */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setSidebarOpen(false)}>
@@ -764,7 +896,6 @@ function App() {
             activeTabId={activeTabId}
             onTabChange={activateTab}
             onTabClose={closeTab}
-            onTabCloseOthers={closeOtherTabs}
             onTabCloseAll={closeAllTabs}
           />
         )}
@@ -772,7 +903,7 @@ function App() {
         {/* 内容区域 */}
         {selectedNoteId ? (
           <div className="flex-1 overflow-hidden">
-            <NoteTab noteId={selectedNoteId} key={selectedNoteId} />
+            <NoteTab noteId={selectedNoteId} />
           </div>
         ) : (
           renderNoteList()

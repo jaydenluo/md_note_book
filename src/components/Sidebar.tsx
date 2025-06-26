@@ -3,11 +3,85 @@ import type { FC } from 'react'
 import { useCategories } from '@stores/categoryStore'
 import { useNotes } from '@stores/noteStore'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Moon, Sun, Cloud } from 'lucide-react'
 import { useTheme } from '@utils/theme'
-import { addCustomContextMenu, createContextMenu } from '@utils/contextMenu'
+import { createContextMenu } from '@utils/contextMenu'
 import { useAlertDialog } from '@/components/ui/alert-dialog'
 import { FolderIcon, FolderPlusIcon } from '@/components/icons'
+import { SettingsDialog } from '@/components/SettingsDialog'
+
+// 自定义图标组件
+const SunIcon = ({ size = 20 }: { size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2" />
+    <path d="M12 20v2" />
+    <path d="m4.93 4.93 1.41 1.41" />
+    <path d="m17.66 17.66 1.41 1.41" />
+    <path d="M2 12h2" />
+    <path d="M20 12h2" />
+    <path d="m6.34 17.66-1.41 1.41" />
+    <path d="m19.07 4.93-1.41 1.41" />
+  </svg>
+);
+
+const MoonIcon = ({ size = 20 }: { size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+  </svg>
+);
+
+const CloudIcon = ({ size = 20 }: { size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+  </svg>
+);
+
+const SettingsIcon = ({ size = 20 }: { size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
 
 interface SidebarProps {
   selectedCategoryId: string | null
@@ -22,6 +96,7 @@ export const Sidebar: FC<SidebarProps> = ({
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const newCategoryInputRef = useRef<HTMLInputElement>(null)
   const editCategoryInputRef = useRef<HTMLInputElement>(null)
   
@@ -118,6 +193,11 @@ export const Sidebar: FC<SidebarProps> = ({
   const getCategoryNoteCount = (categoryId: string) => {
     return notes.filter(note => note.categoryId === categoryId).length
   }
+  
+  // 打开设置对话框
+  const onOpenSettings = () => {
+    setIsSettingsOpen(true)
+  }
 
   // 处理分类右键菜单
   const handleCategoryContextMenu = (e: React.MouseEvent, categoryId: string, categoryName: string) => {
@@ -160,7 +240,7 @@ export const Sidebar: FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-64 h-full flex flex-col bg-gray-50 dark:bg-gray-800">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
       <div className="flex-1 overflow-auto p-2">
         <div className="mb-4">
           <div className="flex items-center justify-between px-2 py-1 text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -247,9 +327,9 @@ export const Sidebar: FC<SidebarProps> = ({
                       onDoubleClick={(e) => handleStartEditingCategory(category.id, category.name, e)}
                       onContextMenu={(e) => handleCategoryContextMenu(e, category.id, category.name)}
                     >
-                      <div className="flex items-center">
-                        <FolderIcon className="mr-2" />
-                        <span className="truncate">{category.name}</span>
+                      <div className="flex items-center min-w-0 flex-1">
+                        <FolderIcon className="mr-2 flex-shrink-0" />
+                        <span className="truncate max-w-[150px] inline-block" title={category.name}>{category.name}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700">
@@ -294,7 +374,7 @@ export const Sidebar: FC<SidebarProps> = ({
             className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
             title={isDark ? '切换到亮色模式' : '切换到暗色模式'}
           >
-            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+            {isDark ? <SunIcon size={20} /> : <MoonIcon size={20} />}
           </motion.button>
           
           <motion.button
@@ -303,7 +383,7 @@ export const Sidebar: FC<SidebarProps> = ({
             className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
             title="云同步"
           >
-            <Cloud size={20} />
+            <CloudIcon size={20} />
           </motion.button>
           
           <motion.button
@@ -311,11 +391,18 @@ export const Sidebar: FC<SidebarProps> = ({
             whileTap={{ scale: 0.95 }}
             className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
             title="设置"
+            onClick={onOpenSettings}
           >
-            <Settings size={20} />
+            <SettingsIcon size={20} />
           </motion.button>
         </div>
       </div>
+      
+      {/* 设置对话框 */}
+      <SettingsDialog 
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
     </div>
   )
 }

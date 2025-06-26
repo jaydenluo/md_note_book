@@ -101,6 +101,25 @@ body {
   }
 }
 
+/* 调整大小把手样式增强 */
+.resize-handle {
+  @apply absolute top-0 bottom-0 w-3 cursor-col-resize z-30 transition-colors duration-200;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  @apply bg-blue-500/30;
+}
+
+.resize-handle-indicator {
+  @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-0.5 bg-gray-400 dark:bg-gray-600 rounded;
+}
+
+.resize-handle:hover .resize-handle-indicator,
+.resize-handle:active .resize-handle-indicator {
+  @apply bg-blue-500;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

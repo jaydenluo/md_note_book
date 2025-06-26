@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTags } from '@stores/tagStore'
+import { useTags } from '../stores/tagStore'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface TagSelectorProps {
