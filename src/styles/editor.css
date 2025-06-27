@@ -70,6 +70,27 @@
   line-height: 1.4 !important;
 }
 
+.compact-editor h4 {
+  @apply text-[17px] font-semibold text-gray-700 dark:text-gray-300;
+  margin-bottom: 3px !important;
+  margin-top: 5px !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor h5 {
+  @apply text-[15px] font-semibold text-gray-700 dark:text-gray-300;
+  margin-bottom: 2px !important;
+  margin-top: 4px !important;
+  line-height: 1.4 !important;
+}
+
+.compact-editor h6 {
+  @apply text-base font-bold text-gray-700 dark:text-gray-300;
+  margin-bottom: 2px !important;
+  margin-top: 3px !important;
+  line-height: 1.4 !important;
+}
+
 /* 紧凑编辑器中的列表 */
 .compact-editor ul {
   @apply list-disc pl-6;
@@ -170,18 +191,142 @@
 
 /* 标题样式 */
 .ProseMirror h1 {
-  @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mb-5 mt-7;
-  line-height: 1.4; /* 标题行间距适度减少 */
+  @apply text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6 mt-8 pb-2;
+  line-height: 1.2;
+  position: relative;
+  border-bottom: 2px solid #33373d; /* 添加底部边框 */
 }
 
 .ProseMirror h2 {
-  @apply text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 mt-6;
-  line-height: 1.4;
+  @apply text-3xl font-bold text-gray-800 dark:text-gray-200 mb-5 mt-7 pb-1;
+  line-height: 1.25;
+  position: relative;
 }
 
 .ProseMirror h3 {
-  @apply text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3 mt-5;
+  @apply text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4 mt-6;
+  line-height: 1.3;
+  position: relative;
+}
+
+.ProseMirror h4 {
+  @apply text-xl font-bold text-gray-800 dark:text-gray-300 mb-3 mt-5;
+  line-height: 1.35;
+  position: relative;
+}
+
+.ProseMirror h5 {
+  @apply text-lg font-bold text-gray-700 dark:text-gray-300 mb-3 mt-4;
   line-height: 1.4;
+  position: relative;
+}
+
+.ProseMirror h6 {
+  @apply text-base font-bold text-gray-700 dark:text-gray-300 mb-2 mt-3;
+  line-height: 1.4;
+  position: relative;
+}
+
+/* 深色模式下的标题边框 */
+@media (prefers-color-scheme: dark) {
+  .ProseMirror h1 {
+    border-bottom-color: #374151;
+  }
+  
+  .ProseMirror h2 {
+    border-bottom-color: #374151;
+  }
+}
+
+/* ================== 标题折叠小三角图标样式 ================== */
+/* 小三角折叠按钮 - 悬浮在标题更左侧 */
+.ProseMirror h1::before,
+.ProseMirror h2::before,
+.ProseMirror h3::before,
+.ProseMirror h4::before,
+.ProseMirror h5::before,
+.ProseMirror h6::before {
+  content: '';
+  position: absolute;
+  left: -25px !important; /* 调整位置，使其更靠近标题文本 */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23777' stroke-width='2'%3E%3Cpath d='M6 3l5 5-5 5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.5; /* 增加默认透明度，使图标更明显 */
+  transition: opacity 0.2s, transform 0.2s;
+  cursor: pointer;
+  display: block;
+  z-index: 10;
+  pointer-events: all;
+}
+
+/* 小三角悬停高亮 */
+.ProseMirror h1:hover::before,
+.ProseMirror h2:hover::before,
+.ProseMirror h3:hover::before,
+.ProseMirror h4:hover::before,
+.ProseMirror h5:hover::before,
+.ProseMirror h6:hover::before {
+  opacity: 1;
+  background-color: rgba(200, 200, 200, 0.2); /* 添加轻微背景色 */
+  border-radius: 3px; /* 圆角背景 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23333' stroke-width='2'%3E%3Cpath d='M6 3l5 5-5 5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* 小三角折叠状态 - 旋转90度 */
+.ProseMirror h1.folded::before,
+.ProseMirror h2.folded::before,
+.ProseMirror h3.folded::before,
+.ProseMirror h4.folded::before,
+.ProseMirror h5.folded::before,
+.ProseMirror h6.folded::before {
+  transform: translateY(-50%) rotate(90deg);
+  opacity: 1;
+  background-color: rgba(200, 200, 200, 0.3); /* 折叠状态背景色更明显 */
+  border-radius: 3px; /* 圆角背景 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23333' stroke-width='2'%3E%3Cpath d='M6 3l5 5-5 5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* ================== 标题H标识样式 ================== */
+/* H标识 - 悬浮在标题左侧，位置不变 */
+.ProseMirror h1::after,
+.ProseMirror h2::after,
+.ProseMirror h3::after,
+.ProseMirror h4::after,
+.ProseMirror h5::after,
+.ProseMirror h6::after {
+  position: absolute;
+  left: -3rem !important; /* 更靠左，与小三角完全分离 */
+  top: 50%;
+  transform: translateY(-50%);
+  @apply text-xs text-gray-400 dark:text-gray-500 font-medium;
+  opacity: 0.6;
+  pointer-events: none; /* 确保H标识不接收点击事件 */
+  width: 20px; /* 给H标识一个固定宽度 */
+  text-align: center;
+  z-index: 5; /* 确保在小三角之下 */
+}
+
+/* 为每个级别的标题单独定义内容 */
+.ProseMirror h1::after { content: 'H1'; }
+.ProseMirror h2::after { content: 'H2'; }
+.ProseMirror h3::after { content: 'H3'; }
+.ProseMirror h4::after { content: 'H4'; }
+.ProseMirror h5::after { content: 'H5'; }
+.ProseMirror h6::after { content: 'H6'; }
+
+/* 被折叠的内容 */
+.ProseMirror .heading-content-folded {
+  display: none !important; /* 添加!important确保样式优先级 */
+  visibility: hidden !important; /* 双保险：使用visibility也隐藏 */
+  height: 0 !important; /* 确保不占空间 */
+  overflow: hidden !important; /* 防止内容溢出 */
+  margin: 0 !important; /* 移除可能的margin */
+  padding: 0 !important; /* 移除可能的padding */
 }
 
 /* 段落样式 - 段落间距调整为适中 */
@@ -321,6 +466,7 @@
 .tiptap-editor {
   @apply max-w-none focus:outline-none min-h-[300px] p-4 pl-8 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
   position: relative;
+  padding-left: 4rem;
 }
 
 /* 标题前缀样式 */
@@ -331,42 +477,6 @@
 .tiptap-editor h5,
 .tiptap-editor h6 {
   @apply relative;
-}
-
-.tiptap-editor h1::before,
-.tiptap-editor h2::before,
-.tiptap-editor h3::before,
-.tiptap-editor h4::before,
-.tiptap-editor h5::before,
-.tiptap-editor h6::before {
-  @apply absolute text-xs font-normal text-gray-400 dark:text-gray-500;
-  left: -1.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.tiptap-editor h1::before {
-  content: 'H1';
-}
-
-.tiptap-editor h2::before {
-  content: 'H2';
-}
-
-.tiptap-editor h3::before {
-  content: 'H3';
-}
-
-.tiptap-editor h4::before {
-  content: 'H4';
-}
-
-.tiptap-editor h5::before {
-  content: 'H5';
-}
-
-.tiptap-editor h6::before {
-  content: 'H6';
 }
 
 /* 编辑器内容区域样式 */
@@ -562,4 +672,93 @@
 .tiptap-editor pre::after {
   content: '';
   @apply absolute top-0 left-0 w-[3rem] h-full bg-gray-100 dark:bg-gray-700 pointer-events-none border-r border-gray-200 dark:border-gray-600;
+}
+
+/* 确保内联样式优先级 */
+.ProseMirror [style*="display: none"] {
+  display: none !important;
+}
+
+
+/* 折叠标题样式 - 使用data-folded属性 */
+.ProseMirror h1[data-folded="true"]::before,
+.ProseMirror h2[data-folded="true"]::before,
+.ProseMirror h3[data-folded="true"]::before,
+.ProseMirror h4[data-folded="true"]::before,
+.ProseMirror h5[data-folded="true"]::before,
+.ProseMirror h6[data-folded="true"]::before {
+  transform: translateY(-50%) rotate(90deg) !important;
+  opacity: 1 !important;
+}
+
+/* 添加折叠内容类样式 */
+/* 不使用folded-content类，改用hidden-by-fold */
+
+/* 增加标题的交互视觉效果 */
+h1, h2, h3, h4, h5, h6 {
+  position: relative;
+  transition: color 0.2s ease, background-color 0.2s ease, transform 0.1s ease;
+  z-index: 1; /* 确保标题在内容之上 */
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  display: block !important; /* 强制标题始终显示 */
+  border-radius: 0.25rem; /* 圆角 */
+}
+
+/* 添加折叠/展开图标 */
+h1::before, h2::before, h3::before, h4::before, h5::before, h6::before {
+  content: '▼'; /* 默认展开图标 */
+  position: absolute;
+  left: 0.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8em;
+  color: #6b7280; /* 图标颜色 */
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+
+
+/* 添加点击状态效果 */
+h1:active, h2:active, h3:active, h4:active, h5:active, h6:active {
+  background-color: rgba(59, 130, 246, 0.1);
+  transform: scale(0.99);
+}
+
+
+
+/* 隐藏折叠内容 - 仅隐藏非标题元素 */
+.hidden-by-fold {
+  display: none !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  clip: rect(0, 0, 0, 0) !important;
+  transition: none !important;
+  z-index: -9999 !important;
+}
+
+
+/* 深色模式适配 */
+.dark h1::before, .dark h2::before, .dark h3::before, 
+.dark h4::before, .dark h5::before, .dark h6::before {
+  color: #9ca3af;
+}
+
+/* 深色模式点击状态 */
+.dark h1:active, .dark h2:active, .dark h3:active, 
+.dark h4:active, .dark h5:active, .dark h6:active {
+  background-color: rgba(96, 165, 250, 0.15);
+}
+
+
+
+/* 确保编辑器处于不可编辑状态时，不会影响用户体验 */
+.ProseMirror:not(.editable) {
+  cursor: default;
 } 

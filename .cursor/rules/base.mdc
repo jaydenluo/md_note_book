@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
-为所有关键代码添加中文注释
+为关键代码添加中文注释，功能区，部件区，函数，作用描述都要加注释。
 注释应该说明代码的作用和目的
 使用fix命令时 准确修复，不要修改不相关的
 使用@别名来简化路径引用
@@ -11,3 +11,5 @@ alwaysApply: true
 
 维护@docs/开发任务文档.md
 使用Shadcn UI与Tailwind CSS
+
+Tauri模式时，数据保持到SQLite，网页模式时数据保存在localStorage。

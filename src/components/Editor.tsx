@@ -24,6 +24,8 @@ interface OutlineItem {
   text: string
   position: number
   line?: number
+  children: OutlineItem[] // 子项
+  isCollapsed: boolean // 折叠状态
 }
 
 // Editor 组件
@@ -103,7 +105,7 @@ export default function Editor({ noteId }: EditorProps) {
       const width = parseInt(savedWidth, 10);
       if (width >= 200 && width <= 600) { // 限制合理范围
         setOutlineWidth(width);
-      }
+        }
     }
   }, []);
 
@@ -116,7 +118,7 @@ export default function Editor({ noteId }: EditorProps) {
       if (noteId) {
         console.log(`编辑器实例正在卸载，noteId: ${noteId}`);
       }
-    }
+          }
   }, [noteId]);
   
   // 保存宽度到localStorage
@@ -159,7 +161,7 @@ export default function Editor({ noteId }: EditorProps) {
     const handleMouseUpEffect = () => {
       setIsDragging(false);
       saveWidth(outlineWidth);
-      
+    
       // 恢复默认样式
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
@@ -252,6 +254,7 @@ export default function Editor({ noteId }: EditorProps) {
   // 内容变更处理
   const handleContentChange = (newContent: string) => {
     if (!note) return;
+    
     // 只在内容和当前内容不一致且不为<p></p>时才写入
     if (newContent !== note.content && newContent !== '<p></p>') {
       console.log('内容变更', { 
@@ -259,9 +262,12 @@ export default function Editor({ noteId }: EditorProps) {
         contentLength: newContent.length,
         firstChars: newContent.substring(0, 30)
       });
-    setLocalContent(newContent);
+      
+      setLocalContent(newContent);
+      
     // 更新大纲
-      debouncedExtractOutline.current(newContent);
+        debouncedExtractOutline.current(newContent);
+    
     // 更新统计信息
     calculateStats(newContent);
     }
@@ -334,7 +340,7 @@ export default function Editor({ noteId }: EditorProps) {
 
   // 提取大纲
   const extractOutline = (content: string) => {
-    const items: OutlineItem[] = [];
+    const flatItems: OutlineItem[] = [];
     // 检查内容类型：HTML还是Markdown
     const isHTML = content.includes('<') && content.includes('>');
     if (isHTML) {
@@ -353,12 +359,14 @@ export default function Editor({ noteId }: EditorProps) {
         }
         // 计算位置（大致估算）
         const position = content.indexOf(heading.outerHTML);
-        items.push({
+        flatItems.push({
           id,
           level,
           text,
           position: position >= 0 ? position : index * 100,
-          line: content.substring(0, position).split('\n').length
+          line: content.substring(0, position).split('\n').length,
+          children: [],
+          isCollapsed: false
         });
       });
     } else {
@@ -374,17 +382,50 @@ export default function Editor({ noteId }: EditorProps) {
           id = genHeadingId(text);
         }
         const position = match.index;
-        items.push({
+        flatItems.push({
           id,
           level,
           text,
           position,
-          line: content.substring(0, position).split('\n').length
+          line: content.substring(0, position).split('\n').length,
+          children: [],
+          isCollapsed: false
         });
       }
     }
-    setOutlineItems(items);
-    return items;
+    
+    // 构建大纲树结构
+    const buildOutlineTree = (items: OutlineItem[]): OutlineItem[] => {
+      if (items.length === 0) return [];
+      
+      const result: OutlineItem[] = [];
+      const stack: OutlineItem[] = [];
+      
+      items.forEach(item => {
+        // 清空栈中所有级别大于等于当前项的元素
+        while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+          stack.pop();
+        }
+        
+        if (stack.length === 0) {
+          // 如果栈为空，将当前项添加到结果数组
+          result.push(item);
+        } else {
+          // 否则将当前项添加到栈顶元素的子项中
+          stack[stack.length - 1].children.push(item);
+        }
+        
+        // 将当前项压入栈
+        stack.push(item);
+      });
+      
+      return result;
+    };
+    
+    // 将平铺的大纲项转换为树结构
+    const treeItems = buildOutlineTree(flatItems);
+    setOutlineItems(treeItems);
+    return treeItems;
   };
 
   // 重新生成大纲函数
@@ -412,6 +453,146 @@ export default function Editor({ noteId }: EditorProps) {
     }
   };
 
+  // 递归渲染大纲树的函数
+  const renderOutlineTree = (items: OutlineItem[]) => {
+    return (
+      <>
+        {items.map((item, index) => (
+          <div key={`outline-item-${item.id || index}`}>
+            <div
+              className="flex items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
+              style={{ paddingLeft: `${(item.level - 1) * 12}px` }}
+            >
+              {/* 折叠/展开图标，只有有子项时才显示 */}
+              {item.children.length > 0 && (
+                <div 
+                  className="mr-2 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // 切换折叠状态
+                    item.isCollapsed = !item.isCollapsed;
+                    // 强制重新渲染
+                    setOutlineItems([...outlineItems]);
+                  }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className={`h-3 w-3 transition-transform ${item.isCollapsed ? '' : 'transform rotate-90'}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              )}
+              {/* 如果没有子项，添加一个空的占位符，保持对齐 */}
+              {item.children.length === 0 && (
+                <div className="mr-2 w-4 h-4"></div>
+              )}
+              
+              {/* 标题文本 */}
+              <span 
+                className={`${item.level === 1 ? 'font-medium' : ''} truncate block flex-1 text-left`}
+                onClick={() => {
+                  // 使用Tiptap editor API跳转到标题
+                  const editor = (window as any).tiptapEditorInstance;
+                  if (!editor) return;
+                  console.log('[大纲点击]', item);
+                  
+                  // 更精确的跳转逻辑
+                  // 1. 首先尝试精确匹配heading节点
+                  let foundPos: number | null = null;
+                  let foundNode: any = null;
+                  
+                  editor.state.doc.descendants((node: any, pos: number) => {
+                    if (node.type.name === 'heading') {
+                      // 比较标题文本 - 精确匹配
+                      if (node.textContent.trim() === item.text.trim()) {
+                        foundPos = pos;
+                        foundNode = node;
+                        console.log('[大纲跳转] 精确匹配到heading节点', node, 'pos:', pos);
+                        return false; // 停止遍历
+                      }
+                    }
+                    return true;
+                  });
+                  
+                  // 2. 若无精确匹配，尝试部分匹配
+                  if (foundPos === null) {
+                    editor.state.doc.descendants((node: any, pos: number) => {
+                      if (node.type.name === 'heading') {
+                        // 比较标题文本 - 包含匹配
+                        if (node.textContent && (
+                            node.textContent.includes(item.text) || 
+                            item.text.includes(node.textContent))
+                           ) {
+                          foundPos = pos;
+                          foundNode = node;
+                          console.log('[大纲跳转] 部分匹配到heading节点', node, 'pos:', pos, '文本:', node.textContent);
+                          return false; // 停止遍历
+                        }
+                      }
+                      return true;
+                    });
+                  }
+                  
+                  // 3. 如找到位置，跳转并高亮
+                  if (foundPos !== null && foundNode) {
+                    // 使用可选链操作符避免类型错误
+                    const level = foundNode.attrs?.level || 1;
+                    editor.commands.focus();
+                    editor.commands.setTextSelection(foundPos + level); // 根据heading级别调整光标位置
+                    console.log('[大纲跳转] 跳转到pos:', foundPos + level);
+                    
+                    // 滚动到可见区域
+                    setTimeout(() => {
+                      const domNode = document.querySelector(`.ProseMirror h${level}[data-node-position="${foundPos}"]`);
+                      if (domNode) {
+                        domNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  } else {
+                    // 4. 尝试文本搜索
+                    console.warn('[大纲跳转] 未找到对应文本的heading节点:', item.text);
+                    const docText = editor.state.doc.textContent;
+                    const headingPos = docText.indexOf(item.text);
+                    
+                    if (headingPos >= 0) {
+                      editor.commands.focus();
+                      editor.commands.setTextSelection(headingPos);
+                      console.log('[大纲跳转] 通过文本内容找到位置:', headingPos);
+                    } 
+                    // 5. 最后尝试按行号跳转（兜底方案）
+                    else if (item.line && item.line > 0) {
+                      const lines = editor.state.doc.textBetween(0, editor.state.doc.content.size).split('\n');
+                      let charCount = 0;
+                      for (let i = 0; i < item.line - 1 && i < lines.length; i++) {
+                        charCount += lines[i]?.length + 1;
+                      }
+                      editor.commands.focus();
+                      editor.commands.setTextSelection(charCount);
+                      console.log('[大纲跳转] 按行号跳转，charCount:', charCount);
+                    }
+                  }
+                }}
+              >
+                {item.text}
+              </span>
+            </div>
+            
+            {/* 递归渲染子项，根据折叠状态显示或隐藏 */}
+            {item.children.length > 0 && !item.isCollapsed && (
+              <div className="pl-2">
+                {renderOutlineTree(item.children)}
+              </div>
+            )}
+          </div>
+        ))}
+      </>
+    );
+  };
+
   // 如果没有笔记ID，显示提示信息
   if (!noteId) return <div className="flex-1 flex items-center justify-center text-gray-500">未选择笔记</div>
 
@@ -419,17 +600,17 @@ export default function Editor({ noteId }: EditorProps) {
   const outlineWidthPercent = showOutline ? `${outlineWidth}px` : '0px';
   const editorWidthPercent = showOutline ? `calc(100% - ${outlineWidth}px)` : '100%';
     
-    return (
+  return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800">
       {/* 标题区域 */}
       <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex-1 flex items-center">
           <div className="flex-1">
-            <input
-              ref={titleRef}
-              type="text"
-              value={localTitle}
-              onChange={handleTitleChange}
+              <input
+                ref={titleRef}
+                type="text"
+                value={localTitle}
+                onChange={handleTitleChange}
               className="w-full text-xl font-semibold bg-transparent border-none outline-none"
               placeholder="无标题"
             />
@@ -460,7 +641,7 @@ export default function Editor({ noteId }: EditorProps) {
                 noteId={note.id}
                 onClose={() => setIsTagSelectorOpen(false)}
               />
-            )}
+                )}
             
             {/* 保存按钮 */}
             <button
@@ -555,103 +736,11 @@ export default function Editor({ noteId }: EditorProps) {
                     <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
                   </svg>
                 </button>
-              </div>
+                </div>
       
               <div className="space-y-1 text-sm">
                 {outlineItems.length > 0 ? (
-                  outlineItems.map((item, index) => (
-                    <div
-                      key={`outline-${index}`}
-                      className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
-                      style={{ paddingLeft: `${(item.level - 1) * 12 + 4}px` }}
-                      onClick={() => {
-                        // 使用Tiptap editor API跳转到标题
-                        const editor = (window as any).tiptapEditorInstance;
-                        if (!editor) return;
-                        console.log('[大纲点击]', item);
-                        
-                        // 更精确的跳转逻辑
-                        // 1. 首先尝试精确匹配heading节点
-                        let foundPos: number | null = null;
-                        let foundNode = null;
-                        
-                        editor.state.doc.descendants((node, pos) => {
-                          if (node.type.name === 'heading') {
-                            // 比较标题文本 - 精确匹配
-                            if (node.textContent.trim() === item.text.trim()) {
-                              foundPos = pos;
-                              foundNode = node;
-                              console.log('[大纲跳转] 精确匹配到heading节点', node, 'pos:', pos);
-                              return false; // 停止遍历
-                            }
-                          }
-                          return true;
-                        });
-                        
-                        // 2. 若无精确匹配，尝试部分匹配
-                        if (foundPos === null) {
-                          editor.state.doc.descendants((node, pos) => {
-                            if (node.type.name === 'heading') {
-                              // 比较标题文本 - 包含匹配
-                              if (node.textContent && (
-                                  node.textContent.includes(item.text) || 
-                                  item.text.includes(node.textContent))
-                                 ) {
-                                foundPos = pos;
-                                foundNode = node;
-                                console.log('[大纲跳转] 部分匹配到heading节点', node, 'pos:', pos, '文本:', node.textContent);
-                                return false; // 停止遍历
-                              }
-                            }
-                            return true;
-                          });
-                        }
-                        
-                        // 3. 如找到位置，跳转并高亮
-                        if (foundPos !== null && foundNode) {
-                          // 使用可选链操作符避免类型错误
-                          const level = foundNode.attrs?.level || 1;
-                          editor.commands.focus();
-                          editor.commands.setTextSelection(foundPos + level); // 根据heading级别调整光标位置
-                          console.log('[大纲跳转] 跳转到pos:', foundPos + level);
-                          
-                          // 滚动到可见区域
-                          setTimeout(() => {
-                            const domNode = document.querySelector(`.ProseMirror h${level}[data-node-position="${foundPos}"]`);
-                            if (domNode) {
-                              domNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                          }, 100);
-                        } else {
-                          // 4. 尝试文本搜索
-                          console.warn('[大纲跳转] 未找到对应文本的heading节点:', item.text);
-                          const docText = editor.state.doc.textContent;
-                          const headingPos = docText.indexOf(item.text);
-                          
-                          if (headingPos >= 0) {
-                            editor.commands.focus();
-                            editor.commands.setTextSelection(headingPos);
-                            console.log('[大纲跳转] 通过文本内容找到位置:', headingPos);
-                          } 
-                          // 5. 最后尝试按行号跳转（兜底方案）
-                          else if (item.line && item.line > 0) {
-                            const lines = editor.state.doc.textBetween(0, editor.state.doc.content.size).split('\n');
-                            let charCount = 0;
-                            for (let i = 0; i < item.line - 1 && i < lines.length; i++) {
-                              charCount += lines[i]?.length + 1;
-                            }
-                            editor.commands.focus();
-                            editor.commands.setTextSelection(charCount);
-                            console.log('[大纲跳转] 按行号跳转，charCount:', charCount);
-                          }
-                        }
-                      }}
-                    >
-                      <span className={`${item.level === 1 ? 'font-medium' : ''} truncate block`}>
-                        {item.text}
-                      </span>
-                    </div>
-                  ))
+                  renderOutlineTree(outlineItems)
                 ) : (
                   <div className="text-gray-400 italic">无大纲项</div>
                 )}
@@ -668,7 +757,7 @@ export default function Editor({ noteId }: EditorProps) {
             <span>创建于: {note.createdAt ? new Date(note.createdAt).toLocaleString() : '-'}</span>
             <span>更新于: {note.updatedAt ? new Date(note.updatedAt).toLocaleString() : '-'}</span>
             <span>字符数: {stats.chars}</span>
-          </div>
+        </div>
           {/* 右侧：快捷键与保存状态 */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded mr-1">快捷键:</span>
@@ -681,7 +770,7 @@ export default function Editor({ noteId }: EditorProps) {
             {saveStatus === 'saved' && <span className="ml-2 text-green-600">已保存</span>}
             {saveStatus === 'error' && <span className="ml-2 text-red-600">保存失败</span>}
           </div>
-        </div>
+      </div>
       )}
     </div>
   )
