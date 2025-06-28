@@ -238,8 +238,8 @@
   }
 }
 
-/* ================== 标题折叠小三角图标样式 ================== */
-/* 小三角折叠按钮 - 悬浮在标题更左侧 */
+/* ================== 标题前的小三角和H标识样式 ================== */
+/* 小三角图标 - 悬浮在标题左侧 */
 .ProseMirror h1::before,
 .ProseMirror h2::before,
 .ProseMirror h3::before,
@@ -248,51 +248,29 @@
 .ProseMirror h6::before {
   content: '';
   position: absolute;
-  left: -25px !important; /* 调整位置，使其更靠近标题文本 */
+  left: -20px;
   top: 50%;
   transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23777' stroke-width='2'%3E%3Cpath d='M6 3l5 5-5 5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.5; /* 增加默认透明度，使图标更明显 */
-  transition: opacity 0.2s, transform 0.2s;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #888;
+  opacity: 0.5;
   cursor: pointer;
-  display: block;
-  z-index: 10;
-  pointer-events: all;
 }
 
-/* 小三角悬停高亮 */
+/* 鼠标悬停时小三角样式 */
 .ProseMirror h1:hover::before,
 .ProseMirror h2:hover::before,
 .ProseMirror h3:hover::before,
 .ProseMirror h4:hover::before,
 .ProseMirror h5:hover::before,
 .ProseMirror h6:hover::before {
-  opacity: 1;
-  background-color: rgba(200, 200, 200, 0.2); /* 添加轻微背景色 */
-  border-radius: 3px; /* 圆角背景 */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23333' stroke-width='2'%3E%3Cpath d='M6 3l5 5-5 5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  opacity: 0.8;
 }
 
-/* 小三角折叠状态 - 旋转90度 */
-.ProseMirror h1.folded::before,
-.ProseMirror h2.folded::before,
-.ProseMirror h3.folded::before,
-.ProseMirror h4.folded::before,
-.ProseMirror h5.folded::before,
-.ProseMirror h6.folded::before {
-  transform: translateY(-50%) rotate(90deg);
-  opacity: 1;
-  background-color: rgba(200, 200, 200, 0.3); /* 折叠状态背景色更明显 */
-  border-radius: 3px; /* 圆角背景 */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23333' stroke-width='2'%3E%3Cpath d='M6 3l5 5-5 5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-/* ================== 标题H标识样式 ================== */
-/* H标识 - 悬浮在标题左侧，位置不变 */
+/* H标识 - 悬浮在标题左侧 */
 .ProseMirror h1::after,
 .ProseMirror h2::after,
 .ProseMirror h3::after,
@@ -300,15 +278,16 @@
 .ProseMirror h5::after,
 .ProseMirror h6::after {
   position: absolute;
-  left: -3rem !important; /* 更靠左，与小三角完全分离 */
-  top: 50%;
+  left: -55px;
+  top: 48%;
   transform: translateY(-50%);
-  @apply text-xs text-gray-400 dark:text-gray-500 font-medium;
+  font-size: 0.75rem;
+  color: #888;
   opacity: 0.6;
-  pointer-events: none; /* 确保H标识不接收点击事件 */
-  width: 20px; /* 给H标识一个固定宽度 */
-  text-align: center;
-  z-index: 5; /* 确保在小三角之下 */
+  font-weight: normal;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  user-select: none;
 }
 
 /* 为每个级别的标题单独定义内容 */
@@ -318,16 +297,6 @@
 .ProseMirror h4::after { content: 'H4'; }
 .ProseMirror h5::after { content: 'H5'; }
 .ProseMirror h6::after { content: 'H6'; }
-
-/* 被折叠的内容 */
-.ProseMirror .heading-content-folded {
-  display: none !important; /* 添加!important确保样式优先级 */
-  visibility: hidden !important; /* 双保险：使用visibility也隐藏 */
-  height: 0 !important; /* 确保不占空间 */
-  overflow: hidden !important; /* 防止内容溢出 */
-  margin: 0 !important; /* 移除可能的margin */
-  padding: 0 !important; /* 移除可能的padding */
-}
 
 /* 段落样式 - 段落间距调整为适中 */
 .ProseMirror p {
@@ -679,7 +648,6 @@
   display: none !important;
 }
 
-
 /* 折叠标题样式 - 使用data-folded属性 */
 .ProseMirror h1[data-folded="true"]::before,
 .ProseMirror h2[data-folded="true"]::before,
@@ -719,15 +687,11 @@ h1::before, h2::before, h3::before, h4::before, h5::before, h6::before {
   transition: transform 0.2s ease, color 0.2s ease;
 }
 
-
-
 /* 添加点击状态效果 */
 h1:active, h2:active, h3:active, h4:active, h5:active, h6:active {
   background-color: rgba(59, 130, 246, 0.1);
   transform: scale(0.99);
 }
-
-
 
 /* 隐藏折叠内容 - 仅隐藏非标题元素 */
 .hidden-by-fold {
@@ -743,7 +707,6 @@ h1:active, h2:active, h3:active, h4:active, h5:active, h6:active {
   z-index: -9999 !important;
 }
 
-
 /* 深色模式适配 */
 .dark h1::before, .dark h2::before, .dark h3::before, 
 .dark h4::before, .dark h5::before, .dark h6::before {
@@ -755,8 +718,6 @@ h1:active, h2:active, h3:active, h4:active, h5:active, h6:active {
 .dark h4:active, .dark h5:active, .dark h6:active {
   background-color: rgba(96, 165, 250, 0.15);
 }
-
-
 
 /* 确保编辑器处于不可编辑状态时，不会影响用户体验 */
 .ProseMirror:not(.editable) {

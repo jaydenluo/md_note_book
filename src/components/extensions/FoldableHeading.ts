@@ -1,7 +1,7 @@
 import { mergeAttributes, Node } from '@tiptap/core'
 import { genHeadingId } from '../Editor'
 
-// 定义可折叠标题扩展
+// 定义标题扩展
 export const FoldableHeading = Node.create({
   name: 'heading',
   
@@ -44,17 +44,6 @@ export const FoldableHeading = Node.create({
           return { id: attributes.id }
         },
       },
-      // 添加折叠状态属性
-      folded: {
-        default: false,
-        parseHTML: element => element.hasAttribute('data-folded'),
-        renderHTML: attributes => {
-          if (!attributes.folded) {
-            return {}
-          }
-          return { 'data-folded': 'true' }
-        },
-      },
       // 添加data-level属性，用于CSS中的::after伪元素显示正确的H标识
       dataLevel: {
         default: null,
@@ -63,7 +52,7 @@ export const FoldableHeading = Node.create({
           const level = attributes.level || 1
           return { 'data-level': level.toString() }
         },
-      },
+      }
     }
   },
   
@@ -99,31 +88,7 @@ export const FoldableHeading = Node.create({
       },
       toggleHeading: attributes => ({ commands }) => {
         return commands.toggleNode(this.name, 'paragraph', attributes)
-      },
-      // 添加折叠/展开命令
-      toggleFolded: () => ({ tr, state, dispatch }) => {
-        // 获取当前选择
-        const { selection } = state
-        const { $from } = selection
-        
-        // 检查当前节点是否为heading
-        const node = $from.node()
-        if (node.type.name !== this.name) {
-          return false
-        }
-        
-        // 切换折叠状态
-        if (dispatch) {
-          const folded = !node.attrs.folded
-          tr.setNodeMarkup($from.before($from.depth), undefined, {
-            ...node.attrs,
-            folded,
-          })
-          dispatch(tr)
-        }
-        
-        return true
-      },
+      }
     }
   },
   

@@ -204,12 +204,23 @@ macOS 需要安装 Xcode Command Line Tools
 
 
 
+调用 editor.setEditable(false) 暂时禁用编辑功能
 
 
+configure 方法来添加或修改属性 
+editor.commands 设置属性
+
+使用编辑器命令更新标题的 folded 属性
+editor.chain().focus(false).command(({ tr }) => { ... }).run()
 
 
+通过 getElementsInFoldedSection 获取标题下需要隐藏/显示的元素
 
+编辑器命令更新节点的 hiddenByFold 属性
 
+同时更新 DOM，添加/移除 hidden-by-fold 类和 data-hidden-by-fold 属性
+
+ data-folded 属性的标题元素
 
 
 
