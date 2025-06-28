@@ -648,24 +648,10 @@
   display: none !important;
 }
 
-/* 折叠标题样式 - 使用data-folded属性 */
-.ProseMirror h1[data-folded="true"]::before,
-.ProseMirror h2[data-folded="true"]::before,
-.ProseMirror h3[data-folded="true"]::before,
-.ProseMirror h4[data-folded="true"]::before,
-.ProseMirror h5[data-folded="true"]::before,
-.ProseMirror h6[data-folded="true"]::before {
-  transform: translateY(-50%) rotate(90deg) !important;
-  opacity: 1 !important;
-}
-
-/* 添加折叠内容类样式 */
-/* 不使用folded-content类，改用hidden-by-fold */
-
 /* 增加标题的交互视觉效果 */
 h1, h2, h3, h4, h5, h6 {
   position: relative;
-  transition: color 0.2s ease, background-color 0.2s ease, transform 0.1s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
   z-index: 1; /* 确保标题在内容之上 */
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
@@ -675,48 +661,22 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 0.25rem; /* 圆角 */
 }
 
-/* 添加折叠/展开图标 */
+/* 添加标题图标 */
 h1::before, h2::before, h3::before, h4::before, h5::before, h6::before {
-  content: '▼'; /* 默认展开图标 */
+  content: '▼'; /* 保留小三角图标 */
   position: absolute;
   left: 0.3rem;
   top: 50%;
   transform: translateY(-50%);
   font-size: 0.8em;
   color: #6b7280; /* 图标颜色 */
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-/* 添加点击状态效果 */
-h1:active, h2:active, h3:active, h4:active, h5:active, h6:active {
-  background-color: rgba(59, 130, 246, 0.1);
-  transform: scale(0.99);
-}
-
-/* 隐藏折叠内容 - 仅隐藏非标题元素 */
-.hidden-by-fold {
-  display: none !important;
-  opacity: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  clip: rect(0, 0, 0, 0) !important;
-  transition: none !important;
-  z-index: -9999 !important;
+  pointer-events: none; /* 禁用鼠标事件，不再用于折叠 */
 }
 
 /* 深色模式适配 */
 .dark h1::before, .dark h2::before, .dark h3::before, 
 .dark h4::before, .dark h5::before, .dark h6::before {
   color: #9ca3af;
-}
-
-/* 深色模式点击状态 */
-.dark h1:active, .dark h2:active, .dark h3:active, 
-.dark h4:active, .dark h5:active, .dark h6:active {
-  background-color: rgba(96, 165, 250, 0.15);
 }
 
 /* 确保编辑器处于不可编辑状态时，不会影响用户体验 */

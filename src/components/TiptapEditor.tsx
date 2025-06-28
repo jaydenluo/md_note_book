@@ -11,7 +11,6 @@ import { common, createLowlight } from 'lowlight'
 import EditorToolbar from './EditorToolbar'
 import '../styles/editor.css'
 import { genHeadingId } from './Editor' // 导入统一的ID生成函数
-import FoldableHeading from './extensions/FoldableHeading'
 
 // 导入常用的编程语言高亮支持
 import javascript from 'highlight.js/lib/languages/javascript'
@@ -127,13 +126,17 @@ const TiptapEditor = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // 禁用默认的标题，使用我们的自定义版本
-        heading: false,
+        // 启用默认的标题，不再使用自定义版本
+        heading: {
+          // 配置默认heading扩展
+          levels: [1, 2, 3, 4, 5, 6],
+          HTMLAttributes: {
+            class: 'relative',
+          },
+        },
         // 禁用默认的代码块，使用我们的自定义版本
         codeBlock: false,
       }),
-      // 添加自定义标题
-      FoldableHeading,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -170,10 +173,34 @@ const TiptapEditor = ({
       try {
         // 直接获取HTML
         const html = editor.getHTML();
+        
+        // 处理HTML，添加data-level属性
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // 为所有标题添加data-level属性
+        const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headings.forEach((heading) => {
+          // 为标题添加ID，如果没有的话
+          if (!heading.id) {
+            const text = heading.textContent?.trim() || '';
+            heading.id = genHeadingId(text);
+          }
+          
+          // 添加data-level属性
+          const level = heading.tagName.substring(1); // 从"H1"提取"1"
+          heading.setAttribute('data-level', level);
+        });
+        
+        // 获取处理后的HTML
+        const processedHtml = doc.body.innerHTML;
+        
         // 保存内容
-        debouncedOnChange(html);
+        debouncedOnChange(processedHtml);
       } catch (error) {
         console.error('编辑器更新处理失败:', error);
+        // 如果处理失败，保存原始HTML
+        debouncedOnChange(editor.getHTML());
       }
     },
     editorProps: {
