@@ -223,6 +223,14 @@ editor.chain().focus(false).command(({ tr }) => { ... }).run()
  data-folded 属性的标题元素
 
 
+点击标题前面小三角，增加折叠功能：
+首先为所有节点增加 hiddenByFold与dataFolded属性，configure方法来添加属性。
+设置折叠之前 调用 editor.setEditable(false) 暂时禁用编辑功能，设置完成后调用 editor.setEditable(true) 恢复编辑功能。
+点击标题前面小三角时，用编辑器命令：更新'当前标题'dataFolded属性,为当前标题 的下级节点增加hiddenByFold属性。
+hiddenByFold属性通过css隐藏节点达到折叠效果。
+
+
+
 
 
 

@@ -11,6 +11,21 @@ import { common, createLowlight } from 'lowlight'
 import EditorToolbar from './EditorToolbar'
 import '../styles/editor.css'
 import { genHeadingId } from './Editor' // 导入统一的ID生成函数
+import { Editor, Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+// 自定义类型声明
+interface WindowWithEditor extends Window {
+  tiptapEditorInstance?: Editor;
+}
+
+// 安全地访问window
+function getGlobalEditor(): Editor | undefined {
+  return (window as unknown as WindowWithEditor).tiptapEditorInstance;
+}
+
+function setGlobalEditor(editor: Editor | undefined): void {
+  (window as unknown as WindowWithEditor).tiptapEditorInstance = editor;
+}
 
 // 导入常用的编程语言高亮支持
 import javascript from 'highlight.js/lib/languages/javascript'
@@ -37,11 +52,11 @@ lowlight.register('bash', bash)
 
 // 编辑器属性接口
 interface TiptapEditorProps {
-  content: string
-  onChange: (content: string) => void
-  className?: string
-  placeholder?: string
-  showToolbar?: boolean // 是否显示工具栏
+  content: string;
+  onChange?: (html: string) => void;
+  className?: string;
+  placeholder?: string;
+  showToolbar?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -96,7 +111,144 @@ function ensureHeadingIds(html: string): string {
 }
 
 /**
- * Tiptap Markdown编辑器组件
+ * 处理标题折叠点击事件
+ */
+function handleFoldingClick(event: MouseEvent, editor?: Editor) {
+  if (!editor) return;
+  
+  const target = event.target as HTMLElement;
+  const headingElement = target.closest('h1, h2, h3, h4, h5, h6');
+  
+  if (headingElement) {
+    const headingRect = headingElement.getBoundingClientRect();
+    const clickX = event.clientX;
+    
+    if (clickX < headingRect.left - 5) {
+      // 暂时禁用编辑器编辑功能
+      editor.setEditable(false);
+      
+      try {
+        // 直接获取并修改DOM元素的属性
+        const isFolded = headingElement.getAttribute('data-folded') === 'true';
+        
+        // 修改标题折叠状态
+        if (isFolded) {
+          headingElement.removeAttribute('data-folded');
+        } else {
+          headingElement.setAttribute('data-folded', 'true');
+        }
+        
+        // 处理折叠内容
+        const headingLevel = parseInt(headingElement.tagName.substring(1));
+        let currentElement = headingElement.nextElementSibling;
+        
+        // 遍历处理所有需要隐藏/显示的元素
+        while (currentElement) {
+          const isHeading = /^H[1-6]$/.test(currentElement.tagName);
+          const elementLevel = isHeading ? parseInt(currentElement.tagName.substring(1)) : 0;
+          
+          // 遇到同级或更高级别的标题，停止处理
+          if (isHeading && elementLevel <= headingLevel) {
+            break;
+          }
+          
+          // 根据折叠状态添加或移除属性
+          if (!isFolded) {
+            currentElement.setAttribute('data-hidden-by-fold', 'true');
+          } else {
+            currentElement.removeAttribute('data-hidden-by-fold');
+          }
+          
+          currentElement = currentElement.nextElementSibling;
+        }
+        
+        // 手动触发编辑器内容更新
+        setTimeout(() => {
+          // 获取当前编辑器实例的根元素内容
+          const editorContent = editor.view.dom.innerHTML;
+          
+          // 使用setContent方法更新编辑器内容，保留历史记录
+          editor.commands.setContent(editorContent, false, {
+            preserveWhitespace: 'full',
+          });
+          
+          // 恢复编辑器可编辑状态
+          editor.setEditable(true);
+        }, 50);
+      } catch (error) {
+        console.error('折叠操作出错:', error);
+        editor.setEditable(true);
+      }
+      
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+}
+
+/**
+ * 添加折叠扩展
+ */
+function createHeadingFoldingExtension() {
+  return Extension.create({
+    name: 'headingFolding',
+    
+    // 注册事件监听
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          key: new PluginKey('heading-folding'),
+          props: {
+            handleClick(view, pos, event) {
+              // 获取编辑器实例
+              const domEvent = event as MouseEvent;
+              const editorInstance = getGlobalEditor();
+              if (editorInstance) {
+                handleFoldingClick(domEvent, editorInstance);
+              }
+              return false;
+            },
+          },
+        })
+      ];
+    },
+    
+    // 添加全局HTML属性
+    addGlobalAttributes() {
+      return [
+        {
+          types: ['heading'],
+          attributes: {
+            'data-folded': {
+              default: null,
+              parseHTML: element => element.getAttribute('data-folded'),
+              renderHTML: attributes => {
+                if (!attributes['data-folded']) return {};
+                return { 'data-folded': attributes['data-folded'] };
+              }
+            }
+          }
+        },
+        {
+          types: ['paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'codeBlock'],
+          attributes: {
+            'data-hidden-by-fold': {
+              default: null,
+              parseHTML: element => element.getAttribute('data-hidden-by-fold'),
+              renderHTML: attributes => {
+                if (!attributes['data-hidden-by-fold']) return {};
+                return { 'data-hidden-by-fold': attributes['data-hidden-by-fold'] };
+              }
+            }
+          }
+        }
+      ];
+    }
+  });
+}
+
+/**
+ * Tiptap富文本编辑器组件
  * 提供基础的Markdown编辑功能和格式工具栏，采用简洁朴素的设计
  */
 const TiptapEditor = ({
@@ -106,20 +258,6 @@ const TiptapEditor = ({
   placeholder = '开始编写笔记...',
   showToolbar = true // 默认显示工具栏
 }: TiptapEditorProps): React.ReactElement => {
-  // 创建防抖的onChange函数
-  const debouncedOnChange = useRef(
-    (() => {
-      let timer: number | null = null
-      return (newContent: string) => {
-        if (timer) clearTimeout(timer)
-        timer = setTimeout(() => {
-          onChange(newContent)
-        }, 300)
-      }
-    })()
-  ).current
-
-  // 新增：首次渲染时不触发onChange
   const isFirstRender = useRef(true);
 
   // 创建编辑器实例
@@ -136,127 +274,69 @@ const TiptapEditor = ({
         },
         // 禁用默认的代码块，使用我们的自定义版本
         codeBlock: false,
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: true
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: true
+        }
       }),
       Underline,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-blue-600 dark:text-blue-400 underline'
-        }
-      }),
-      Image.configure({
-        HTMLAttributes: {
-          class: 'max-w-full h-auto rounded'
-        }
-      }),
-      TextAlign.configure({
-        types: ['heading', 'paragraph']
+          class: 'text-blue-500 underline cursor-pointer hover:text-blue-700 transition-colors',
+        },
       }),
       Placeholder.configure({
-        placeholder
+        placeholder,
       }),
-      // 添加支持语法高亮的代码块
       CodeBlockLowlight.configure({
         lowlight,
-        HTMLAttributes: {
-          class: 'code-block',
-        },
         languageClassPrefix: 'language-',
       }),
+      // 添加折叠扩展
+      createHeadingFoldingExtension(),
     ],
     content: content || '',
     onUpdate: ({ editor }) => {
       if (isFirstRender.current) {
         isFirstRender.current = false;
-        return; // 首次渲染不触发onChange
+        return;
       }
-      try {
-        // 直接获取HTML
-        const html = editor.getHTML();
-        
-        // 处理HTML，添加data-level属性
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        // 为所有标题添加data-level属性
-        const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        headings.forEach((heading) => {
-          // 为标题添加ID，如果没有的话
-          if (!heading.id) {
-            const text = heading.textContent?.trim() || '';
-            heading.id = genHeadingId(text);
-          }
-          
-          // 添加data-level属性
-          const level = heading.tagName.substring(1); // 从"H1"提取"1"
-          heading.setAttribute('data-level', level);
-        });
-        
-        // 获取处理后的HTML
-        const processedHtml = doc.body.innerHTML;
-        
-        // 保存内容
-        debouncedOnChange(processedHtml);
-      } catch (error) {
-        console.error('编辑器更新处理失败:', error);
-        // 如果处理失败，保存原始HTML
-        debouncedOnChange(editor.getHTML());
-      }
+      const html = editor.getHTML();
+      onChange?.(html);
     },
-    editorProps: {
-      attributes: {
-        class: 'tiptap-editor'
-      }
-    },
-    // 确保编辑器在创建时就有焦点
-    autofocus: false,
     // 启用所有编辑器功能
     enableCoreExtensions: true
   })
 
-  // 将editor实例挂载到window，供大纲跳转调用
+  // 当content prop变化时更新编辑器内容
+  useEffect(() => {
+    if (editor && content !== undefined && editor.getHTML() !== content) {
+      editor.commands.setContent(content, false);
+    }
+  }, [content, editor])
+
+  // 保存编辑器实例到window对象供折叠功能使用
   useEffect(() => {
     if (editor) {
-      // 临时将editor实例挂载到window供大纲跳转使用
-      (window as Window & typeof globalThis & { tiptapEditorInstance: typeof editor }).tiptapEditorInstance = editor;
+      setGlobalEditor(editor);
     }
+    
     return () => {
-      // 清理window.tiptapEditorInstance全局变量
-      if ((window as Window & typeof globalThis & { tiptapEditorInstance: typeof editor }).tiptapEditorInstance === editor) {
-        (window as Window & typeof globalThis & { tiptapEditorInstance: typeof editor }).tiptapEditorInstance = null;
+      if (getGlobalEditor() === editor) {
+        setGlobalEditor(undefined);
       }
     };
   }, [editor]);
 
-  // 当content prop变化时更新编辑器内容
-  useEffect(() => {
-    if (editor) {
-      const currentContent = editor.getHTML();
-      // 只有当 content 非空且和当前内容不一致时才 setContent
-      if (content && currentContent !== content) {
-        editor.commands.setContent(content, false);
-      }
-    }
-  }, [content, editor])
-
-  // 确保编辑器在组件挂载后能够正确响应焦点
-  useEffect(() => {
-    if (editor) {
-      // 设置编辑器为可编辑状态
-      editor.setEditable(true)
-    }
-  }, [editor])
-
   return (
-    <div className={`flex flex-col h-full bg-gray-100 dark:bg-gray-800 ${className}`}>
-      {/* 工具栏 */}
+    <div className={`tiptap-editor-container w-full ${className}`}>
       {showToolbar && editor && <EditorToolbar editor={editor} />}
-      
-      {/* 编辑器内容区域 */}
-      <div className="flex-1 overflow-auto">
-        {/* @ts-expect-error - EditorContent 的类型定义有问题，但组件实际工作正常 */}
-        {editor && <EditorContent editor={editor} className="h-full" />}
-      </div>
+      <EditorContent editor={editor} className="tiptap-editor" />
     </div>
   )
 }

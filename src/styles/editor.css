@@ -172,10 +172,9 @@
 
 /* 编辑器内容样式 */
 .ProseMirror {
-  @apply outline-none;
-  line-height: 1.4; /* 全局行间距适度调整，不过于松散 */
   height: 100%;
-  @apply p-3; /* 稍微减少内边距 */
+  @apply p-3;
+  outline: 0;
 }
 
 /* 占位符样式 */
@@ -239,25 +238,48 @@
 }
 
 /* ================== 标题前的小三角和H标识样式 ================== */
-/* 小三角图标 - 悬浮在标题左侧 */
+/* 小三角图标 - 可点击的折叠控件 */
 .ProseMirror h1::before,
 .ProseMirror h2::before,
 .ProseMirror h3::before,
 .ProseMirror h4::before,
 .ProseMirror h5::before,
 .ProseMirror h6::before {
-  content: '';
+  content: '▼';
   position: absolute;
-  left: -20px;
+  left: -14px;
   top: 50%;
   transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid #888;
   opacity: 0.5;
   cursor: pointer;
+  transition: transform 0.2s ease;
+  font-size: 12px;
+  line-height: 1;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 深色模式下小三角颜色 */
+.dark .ProseMirror h1::before,
+.dark .ProseMirror h2::before,
+.dark .ProseMirror h3::before,
+.dark .ProseMirror h4::before,
+.dark .ProseMirror h5::before,
+.dark .ProseMirror h6::before {
+  opacity: 0.7;
+}
+
+/* 已折叠标题的小三角样式 - 旋转指向 */
+.ProseMirror h1[data-folded="true"]::before,
+.ProseMirror h2[data-folded="true"]::before,
+.ProseMirror h3[data-folded="true"]::before,
+.ProseMirror h4[data-folded="true"]::before,
+.ProseMirror h5[data-folded="true"]::before,
+.ProseMirror h6[data-folded="true"]::before {
+  content: '▶';
 }
 
 /* 鼠标悬停时小三角样式 */
@@ -278,7 +300,7 @@
 .ProseMirror h5::after,
 .ProseMirror h6::after {
   position: absolute;
-  left: -55px;
+  left: -40px;
   top: 48%;
   transform: translateY(-50%);
   font-size: 0.75rem;
@@ -433,9 +455,20 @@
 
 /* 编辑器基础样式 */
 .tiptap-editor {
-  @apply max-w-none focus:outline-none min-h-[300px] p-4 pl-8 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  @apply max-w-none min-h-[300px] p-0 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
   position: relative;
-  padding-left: 4rem;
+  padding-left: 2rem;
+}
+
+/* 编辑器内容区域样式 */
+.tiptap-editor > div {
+  @apply max-w-full mx-0;
+}
+
+/* 编辑器内容样式 */
+.ProseMirror {
+  height: 100%;
+  @apply p-3;
 }
 
 /* 标题前缀样式 */
@@ -446,11 +479,6 @@
 .tiptap-editor h5,
 .tiptap-editor h6 {
   @apply relative;
-}
-
-/* 编辑器内容区域样式 */
-.tiptap-editor > div {
-  @apply max-w-4xl mx-auto;
 }
 
 /* 代码块样式 */
@@ -644,11 +672,12 @@
 }
 
 /* 确保内联样式优先级 */
-.ProseMirror [style*="display: none"] {
+.ProseMirror [style*="display: none"],
+.ProseMirror .hidden-by-fold {
   display: none !important;
 }
 
-/* 增加标题的交互视觉效果 */
+/* 添加标题图标 */
 h1, h2, h3, h4, h5, h6 {
   position: relative;
   transition: color 0.2s ease, background-color 0.2s ease;
@@ -661,18 +690,6 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 0.25rem; /* 圆角 */
 }
 
-/* 添加标题图标 */
-h1::before, h2::before, h3::before, h4::before, h5::before, h6::before {
-  content: '▼'; /* 保留小三角图标 */
-  position: absolute;
-  left: 0.3rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.8em;
-  color: #6b7280; /* 图标颜色 */
-  pointer-events: none; /* 禁用鼠标事件，不再用于折叠 */
-}
-
 /* 深色模式适配 */
 .dark h1::before, .dark h2::before, .dark h3::before, 
 .dark h4::before, .dark h5::before, .dark h6::before {
@@ -682,4 +699,44 @@ h1::before, h2::before, h3::before, h4::before, h5::before, h6::before {
 /* 确保编辑器处于不可编辑状态时，不会影响用户体验 */
 .ProseMirror:not(.editable) {
   cursor: default;
+}
+
+/* 被折叠内容的样式 - 完全隐藏 */
+.hidden-by-fold {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* 确保内联样式优先级 */
+.ProseMirror [data-hidden-by-fold="true"] {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  pointer-events: none !important;
+}
+
+
+
+/* 处理浏览器默认focus样式 */
+*:focus {
+  outline: none !important;
+}
+
+/* 覆盖可能存在的内联样式 */
+.tiptap-editor .ProseMirror[style*="border"],
+.tiptap-editor [contenteditable="true"][style*="border"],
+.tiptap-editor .ProseMirror[style*="outline"],
+.tiptap-editor [contenteditable="true"][style*="outline"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 } 
