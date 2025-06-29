@@ -11,5 +11,6 @@ alwaysApply: true
 
 维护@docs/开发任务文档.md
 使用Shadcn UI与Tailwind CSS
-
 Tauri模式时，数据保持到SQLite，网页模式时数据保存在localStorage。
+使用pnpm安装包
+精准修改我提的问题，不要乱修改

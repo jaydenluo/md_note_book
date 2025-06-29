@@ -640,7 +640,7 @@ export default function Editor({ noteId }: EditorProps) {
       {/* 主要编辑区域 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 编辑器 */}
-        <div className="flex flex-col h-full overflow-hidden transition-all duration-300" style={{ width: editorWidthPercent }}>
+        <div className="flex flex-col h-full overflow-y-auto transition-all duration-300" style={{ width: editorWidthPercent }}>
           <TiptapEditor content={localContent} onChange={handleContentChange} />
         </div>
 
