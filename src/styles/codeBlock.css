@@ -1,0 +1,194 @@
+/* 代码块基础样式 */
+.code-block-wrapper {
+  position: relative;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+  @apply bg-gray-50 dark:bg-gray-700;
+  @apply border border-gray-200 dark:border-gray-700;
+  overflow: hidden;
+}
+
+/* 代码块头部样式 */
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 30px;
+  padding: 0 0.75rem;
+  @apply bg-gray-100 dark:bg-gray-800;
+  @apply border-b border-gray-200 dark:border-gray-700;
+}
+
+.code-block-language {
+  font-size: 0.75rem;
+  font-weight: 500;
+  @apply text-gray-500 dark:text-gray-400;
+  text-transform: uppercase;
+}
+
+.code-block-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.code-block-action-button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  background-color: var(--color-button-bg, #e9ecef);
+  border: none;
+  border-radius: 0.25rem;
+  color: var(--color-button-text, #495057);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.code-block-action-button:hover {
+  background-color: var(--color-button-hover-bg, #dee2e6);
+}
+
+/* 代码块内容样式 */
+.code-block-body {
+  position: relative;
+}
+
+.code-block-content {
+  position: relative;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+}
+
+/* 行号样式 */
+.code-block-line-numbers {
+  padding: 0.5rem 0;
+  @apply bg-gray-100 dark:bg-gray-700;
+  @apply border-r border-gray-200 dark:border-gray-800;
+  user-select: none;
+  @apply text-gray-500 dark:text-gray-400;
+  font-family: monospace;
+  font-size: 0.875rem;
+  overflow-y: hidden;
+}
+
+.line-number {
+  padding: 0 0.75rem;
+  min-width: 2rem;
+  text-align: right;
+  height: 1.4em;
+  line-height: 1.4em;
+  white-space: nowrap;
+}
+
+/* 代码内容样式 */
+.code-content {
+  overflow-x: auto;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background: none;
+  border: none;
+  white-space: pre;
+  @apply text-gray-700 dark:text-gray-300;
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+
+.code-content > code {
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 0.5rem;
+  white-space: inherit;
+  display: block;
+  min-height: 1.4em;
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+/* 确保语法高亮和换行符正确显示 */
+.code-content span {
+  display: inline;
+  white-space: pre;
+}
+
+.code-content br {
+  display: block;
+  content: "";
+  height: 1.4em;
+}
+
+.code-content .ProseMirror-trailingBreak {
+  display: block;
+  height: 1.4em;
+}
+
+/* 复制按钮样式 */
+.code-block-copy-button {
+  @apply flex items-center gap-1;
+  @apply text-gray-500 dark:text-gray-400;
+  @apply hover:text-gray-700 dark:hover:text-gray-300;
+  @apply text-xs;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 1;
+}
+
+.code-block-copy-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.code-block-copy-button:hover {
+  @apply bg-gray-200 dark:bg-gray-700;
+}
+
+/* 调整大小手柄样式 */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: ns-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+}
+
+.resize-handle:hover {
+  @apply bg-gray-200 dark:bg-gray-700;
+}
+
+/* 图标样式 */
+.icon-copy::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.icon-chevron-down::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.icon-chevron-up::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+} 

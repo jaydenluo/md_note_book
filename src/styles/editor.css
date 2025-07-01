@@ -342,20 +342,19 @@
 
 /* 代码样式 */
 .ProseMirror code {
-  @apply bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200;
-  @apply px-1 py-0.5 rounded text-sm font-mono;
+  @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200;
+  @apply text-sm font-mono;
   line-height: 1.4;
 }
 
 .ProseMirror pre {
-  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded;
+  @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200;
   @apply overflow-x-auto border border-gray-200 dark:border-gray-700;
-  line-height: 1.4;
-  margin: 12px 0; /* 适度调整代码块上下间距 */
 }
 
 .ProseMirror pre code {
   @apply bg-transparent text-inherit p-0;
+  padding: 6px 12px
 }
 
 /* 列表样式 - 调整行间距 */
@@ -481,54 +480,7 @@
   @apply relative;
 }
 
-/* 代码块样式 */
-.tiptap-editor pre {
-  @apply bg-gray-100 dark:bg-gray-700 rounded-lg my-4 overflow-x-auto border border-gray-200 dark:border-gray-700/20;
-  position: relative;
-  counter-reset: line;
-  padding: 0;
-}
 
-.tiptap-editor pre code {
-  @apply text-sm font-mono text-gray-800 dark:text-gray-200 leading-relaxed block;
-  tab-size: 2;
-  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, 'Courier New', monospace;
-  background: transparent;
-  padding: 1rem;
-  padding-left: 4rem;
-  min-width: 100%;
-}
-
-/* 代码块行号 */
-.tiptap-editor pre code {
-  counter-increment: line;
-}
-
-.tiptap-editor pre code::before {
-  content: counter(line);
-  @apply absolute left-0 text-gray-400 dark:text-gray-500 w-[3rem] inline-block text-right pr-4 select-none border-r border-gray-200 dark:border-gray-600;
-  background: theme('colors.gray.100');
-  @apply dark:bg-gray-700;
-}
-
-/* 代码块语言标签 */
-.tiptap-editor pre[data-language]::before {
-  @apply absolute top-3 right-3 text-xs text-gray-500 dark:text-gray-400 font-mono px-2 py-1 rounded bg-white/80 dark:bg-gray-600/50 backdrop-blur-sm z-10 border border-gray-200 dark:border-gray-600;
-  content: attr(data-language);
-  letter-spacing: 0.025em;
-}
-
-/* 行内代码样式 */
-.tiptap-editor :not(pre) > code {
-  @apply bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded px-1.5 py-0.5 text-[0.9em] font-mono border border-gray-200 dark:border-gray-600;
-  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, 'Courier New', monospace;
-}
-
-/* 代码块选择样式 */
-.tiptap-editor pre code::selection,
-.tiptap-editor pre code *::selection {
-  @apply bg-blue-500/10 dark:bg-gray-500/30;
-}
 
 /* 代码高亮主题 - GitHub Light 风格 (亮色模式) */
 @media (prefers-color-scheme: light) {
@@ -644,31 +596,6 @@
   .hljs-bullet {
     @apply text-[#98c379];
   }
-}
-
-/* 代码块滚动条样式 */
-.tiptap-editor pre::-webkit-scrollbar {
-  @apply h-1.5 w-1.5;
-}
-
-.tiptap-editor pre::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-.tiptap-editor pre::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-500/20 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500/30;
-}
-
-/* 代码块悬停效果 */
-.tiptap-editor pre:hover code::before {
-  @apply text-gray-500 dark:text-gray-500/90;
-  transition: opacity 0.2s ease;
-}
-
-/* 代码块行号列背景 */
-.tiptap-editor pre::after {
-  content: '';
-  @apply absolute top-0 left-0 w-[3rem] h-full bg-gray-100 dark:bg-gray-700 pointer-events-none border-r border-gray-200 dark:border-gray-600;
 }
 
 /* 确保内联样式优先级 */
