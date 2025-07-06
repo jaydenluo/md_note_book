@@ -3,8 +3,8 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
-import TextAlign from '@tiptap/extension-text-align'
+// import Image from '@tiptap/extension-image'
+// import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
@@ -14,9 +14,69 @@ import '../styles/codeBlock.css' // 导入代码块样式
 import { genHeadingId } from './Editor' // 导入统一的ID生成函数
 import { Editor, Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from 'prosemirror-state'
+import { useAlertDialog } from './ui/alert-dialog'
 // 自定义类型声明
 interface WindowWithEditor extends Window {
   tiptapEditorInstance?: Editor;
+  isResizingCodeBlock?: boolean; // 添加全局拖动状态标志
+  isFoldingOperation?: boolean; // 添加全局折叠操作状态标志
+  showConfirmDialog?: (options: { title: string; description?: string; variant?: "default" | "destructive"; onConfirm: () => void }) => Promise<boolean>;
+  enterKeyTimes?: number[]; // 添加回车键时间记录
+  codeBlockUpdateFunctions?: Map<string, () => void>; // 添加代码块更新函数映射
+}
+
+// 通用函数：滚动到代码块内的光标位置
+function scrollToCursorInCodeBlock(editor: Editor) {
+  const { state } = editor;
+  const { selection } = state;
+  const { $from } = selection;
+  
+  // 确保光标在代码块内
+  if ($from.parent.type.name === 'codeBlock') {
+    // 获取代码块元素
+    const codeBlockElement = editor.view.nodeDOM($from.before()) as HTMLElement;
+    if (codeBlockElement) {
+      const preElement = codeBlockElement.querySelector('.code-content') as HTMLElement;
+      if (preElement) {
+        // 滚动到光标位置
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.collapse(true);
+          
+          // 计算光标位置并滚动
+          const rect = range.getBoundingClientRect();
+          const preRect = preElement.getBoundingClientRect();
+          
+          // 检查光标是否在可视区域内
+          if (rect.bottom > preRect.bottom || rect.top < preRect.top) {
+            // 光标不在可视区域内，需要滚动
+            const scrollTop = preElement.scrollTop + (rect.top - preRect.top) - 20; // 留一些边距
+            preElement.scrollTop = Math.max(0, scrollTop);
+          }
+        }
+      }
+    }
+  }
+}
+
+// 通用函数：滚动到编辑器内的光标位置（用于退出代码块后）
+function scrollToCursorInEditor(editor: Editor) {
+  const selectionElement = window.getSelection();
+  if (selectionElement && selectionElement.rangeCount > 0) {
+    const range = selectionElement.getRangeAt(0);
+    range.collapse(true);
+    
+    const rect = range.getBoundingClientRect();
+    const editorElement = editor.view.dom as HTMLElement;
+    const editorRect = editorElement.getBoundingClientRect();
+    
+    if (rect.bottom > editorRect.bottom || rect.top < editorRect.top) {
+      // 光标不在可视区域内，需要滚动
+      const scrollTop = editorElement.scrollTop + (rect.top - editorRect.top) - 20;
+      editorElement.scrollTop = Math.max(0, scrollTop);
+    }
+  }
 }
 
 // 安全地访问window
@@ -26,6 +86,36 @@ function getGlobalEditor(): Editor | undefined {
 
 function setGlobalEditor(editor: Editor | undefined): void {
   (window as unknown as WindowWithEditor).tiptapEditorInstance = editor;
+}
+
+// 设置全局拖动状态
+function setGlobalResizing(isResizing: boolean): void {
+  (window as unknown as WindowWithEditor).isResizingCodeBlock = isResizing;
+}
+
+// 获取全局拖动状态
+function getGlobalResizing(): boolean {
+  return !!(window as unknown as WindowWithEditor).isResizingCodeBlock;
+}
+
+// 设置全局折叠操作状态
+function setGlobalFolding(isFolding: boolean): void {
+  (window as unknown as WindowWithEditor).isFoldingOperation = isFolding;
+}
+
+// 获取全局折叠操作状态
+function getGlobalFolding(): boolean {
+  return !!(window as unknown as WindowWithEditor).isFoldingOperation;
+}
+
+// 设置全局确认对话框函数
+function setGlobalConfirmDialog(showConfirm: (options: { title: string; description?: string; variant?: "default" | "destructive"; onConfirm: () => void }) => Promise<boolean>): void {
+  (window as unknown as WindowWithEditor).showConfirmDialog = showConfirm;
+}
+
+// 获取全局确认对话框函数
+function getGlobalConfirmDialog(): ((options: { title: string; description?: string; variant?: "default" | "destructive"; onConfirm: () => void }) => Promise<boolean>) | undefined {
+  return (window as unknown as WindowWithEditor).showConfirmDialog;
 }
 
 // 导入常用的编程语言高亮支持
@@ -50,34 +140,73 @@ import xml from 'highlight.js/lib/languages/xml'
 import markdown from 'highlight.js/lib/languages/markdown'
 import bash from 'highlight.js/lib/languages/bash'
 import powershell from 'highlight.js/lib/languages/powershell'
+import c from 'highlight.js/lib/languages/c'
+import dart from 'highlight.js/lib/languages/dart'
+import r from 'highlight.js/lib/languages/r'
+import julia from 'highlight.js/lib/languages/julia'
+import matlab from 'highlight.js/lib/languages/matlab'
+import perl from 'highlight.js/lib/languages/perl'
+import lua from 'highlight.js/lib/languages/lua'
+import assembly from 'highlight.js/lib/languages/x86asm'
+import scss from 'highlight.js/lib/languages/scss'
+import less from 'highlight.js/lib/languages/less'
+import objectivec from 'highlight.js/lib/languages/objectivec'
 
 // 注册语言支持
 lowlight.registerLanguage('javascript', javascript)
+lowlight.registerLanguage('js', javascript)
 lowlight.registerLanguage('typescript', typescript)
+lowlight.registerLanguage('ts', typescript)
 lowlight.registerLanguage('python', python)
+lowlight.registerLanguage('py', python)
 lowlight.registerLanguage('java', java)
 lowlight.registerLanguage('cpp', cpp)
+lowlight.registerLanguage('c++', cpp)
+lowlight.registerLanguage('c', c)
 lowlight.registerLanguage('csharp', csharp)
+lowlight.registerLanguage('cs', csharp)
 lowlight.registerLanguage('php', php)
 lowlight.registerLanguage('go', go)
 lowlight.registerLanguage('rust', rust)
+lowlight.registerLanguage('rs', rust)
 lowlight.registerLanguage('swift', swift)
 lowlight.registerLanguage('kotlin', kotlin)
+lowlight.registerLanguage('kt', kotlin)
 lowlight.registerLanguage('ruby', ruby)
+lowlight.registerLanguage('rb', ruby)
 lowlight.registerLanguage('css', css)
 lowlight.registerLanguage('html', html)
+lowlight.registerLanguage('xml', xml)
 lowlight.registerLanguage('sql', sql)
 lowlight.registerLanguage('json', json)
 lowlight.registerLanguage('yaml', yaml)
-lowlight.registerLanguage('xml', xml)
+lowlight.registerLanguage('yml', yaml)
 lowlight.registerLanguage('markdown', markdown)
+lowlight.registerLanguage('md', markdown)
 lowlight.registerLanguage('bash', bash)
+lowlight.registerLanguage('sh', bash)
+lowlight.registerLanguage('shell', bash)
 lowlight.registerLanguage('powershell', powershell)
+lowlight.registerLanguage('ps1', powershell)
+lowlight.registerLanguage('dart', dart)
+lowlight.registerLanguage('r', r)
+lowlight.registerLanguage('julia', julia)
+lowlight.registerLanguage('matlab', matlab)
+lowlight.registerLanguage('perl', perl)
+lowlight.registerLanguage('pl', perl)
+lowlight.registerLanguage('lua', lua)
+lowlight.registerLanguage('assembly', assembly)
+lowlight.registerLanguage('asm', assembly)
+lowlight.registerLanguage('scss', scss)
+lowlight.registerLanguage('less', less)
+lowlight.registerLanguage('objectivec', objectivec)
+lowlight.registerLanguage('objc', objectivec)
 
 // 编辑器属性接口
 interface TiptapEditorProps {
   content: string;
   onChange?: (html: string) => void;
+  onStateChange?: (state: { isInCodeBlock: boolean }) => void;
   className?: string;
   placeholder?: string;
   showToolbar?: boolean;
@@ -148,6 +277,9 @@ function handleFoldingClick(event: MouseEvent, editor?: Editor) {
     const clickX = event.clientX;
     
     if (clickX < headingRect.left - 5) {
+      // 设置全局折叠操作状态为true
+      setGlobalFolding(true);
+      
       // 暂时禁用编辑器编辑功能
       editor.setEditable(false);
       
@@ -177,30 +309,28 @@ function handleFoldingClick(event: MouseEvent, editor?: Editor) {
           }
           
           // 根据折叠状态添加或移除属性
-          if (!isFolded) {
-            currentElement.setAttribute('data-hidden-by-fold', 'true');
-          } else {
+          if (isFolded) {
+            // 如果标题当前是折叠状态，展开时移除隐藏属性
             currentElement.removeAttribute('data-hidden-by-fold');
+          } else {
+            // 如果标题当前是展开状态，折叠时添加隐藏属性
+            currentElement.setAttribute('data-hidden-by-fold', 'true');
           }
           
           currentElement = currentElement.nextElementSibling;
         }
         
-        // 手动触发编辑器内容更新
+        // 延迟恢复编辑器状态，确保属性能够持久化
         setTimeout(() => {
-          // 获取当前编辑器实例的根元素内容
-          const editorContent = editor.view.dom.innerHTML;
-          
-          // 使用setContent方法更新编辑器内容，保留历史记录
-          editor.commands.setContent(editorContent, false, {
-            preserveWhitespace: 'full',
-          });
+          // 设置全局折叠操作状态为false
+          setGlobalFolding(false);
           
           // 恢复编辑器可编辑状态
           editor.setEditable(true);
-        }, 50);
+        }, 100);
       } catch (error) {
         console.error('折叠操作出错:', error);
+        setGlobalFolding(false);
         editor.setEditable(true);
       }
       
@@ -286,10 +416,33 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
           return height ? parseInt(height, 10) : null;
         },
         renderHTML: attributes => {
-          return attributes.height ? { 'data-height': attributes.height.toString() } : {};
+          if (!attributes.height) return {};
+          return { 'data-height': attributes.height.toString() };
         }
       }
     };
+  },
+
+  // 添加全局HTML属性处理
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['codeBlock'],
+        attributes: {
+          'data-height': {
+            default: null,
+            parseHTML: element => {
+              const height = element.getAttribute('data-height');
+              return height ? parseInt(height, 10) : null;
+            },
+            renderHTML: attributes => {
+              if (!attributes['data-height']) return {};
+              return { 'data-height': attributes['data-height'].toString() };
+            }
+          }
+        }
+      }
+    ];
   },
 
   addCommands() {
@@ -333,7 +486,7 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
 
   addKeyboardShortcuts() {
     return {
-      // 处理回车键
+      // 处理回车键 - 500ms内连续3次回车退出代码块
       Enter: ({ editor }) => {
         const { state } = editor;
         const { selection } = state;
@@ -344,33 +497,36 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
           return false;
         }
 
-        // 获取当前位置的文本内容
-        const currentNodeText = $from.parent.textContent;
-        const currentLine = currentNodeText.split('\n').find((_, i) => 
-          i === currentNodeText.split('\n').findIndex((_, index) => 
-            index === Math.floor($from.parentOffset / ($from.parent.textContent.length / currentNodeText.split('\n').length))
-          )
-        ) || '';
-
-        // 检查是否在代码块末尾
-        const isAtEnd = $from.pos >= $from.end() - 1;
+        // 获取当前时间戳
+        const now = Date.now();
         
-        // 检查当前行和上一行是否为空
-        const lines = currentNodeText.split('\n');
-        const currentLineIndex = lines.findIndex((_, i) => lines.slice(0, i + 1).join('\n').length >= $from.parentOffset);
-        const currentLineEmpty = !currentLine.trim();
-        const prevLineEmpty = currentLineIndex > 0 && !lines[currentLineIndex - 1].trim();
-
-        // 在以下情况退出代码块：
-        // 1. 在代码块末尾
-        // 2. 当前行为空
-        // 3. 上一行也为空
-        if (isAtEnd && currentLineEmpty && prevLineEmpty) {
+        // 获取或创建回车时间记录
+        const windowWithEditor = window as WindowWithEditor;
+        if (!windowWithEditor.enterKeyTimes) {
+          windowWithEditor.enterKeyTimes = [];
+        }
+        
+        // 添加当前回车时间
+        windowWithEditor.enterKeyTimes.push(now);
+        
+        // 只保留最近5次回车记录
+        if (windowWithEditor.enterKeyTimes.length > 5) {
+          windowWithEditor.enterKeyTimes = windowWithEditor.enterKeyTimes.slice(-5);
+        }
+        
+        // 检查500ms内是否有3次回车
+        const recentEnters = windowWithEditor.enterKeyTimes.filter(time => now - time <= 500);
+        
+        if (recentEnters.length >= 3) {
+          // 清空回车记录
+          windowWithEditor.enterKeyTimes = [];
+          
+          // 退出代码块
           return editor
             .chain()
             .command(({ tr }) => {
               // 删除多余的空行
-              tr.delete($from.pos - 1, $from.pos);
+              tr.delete($from.pos - 2, $from.pos);
               return true;
             })
             .exitCode()
@@ -378,7 +534,14 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
         }
 
         // 否则插入换行
-        return editor.commands.insertContent('\n');
+        const result = editor.commands.insertContent('\n');
+        
+        // 滚动到光标位置
+        setTimeout(() => {
+          scrollToCursorInCodeBlock(editor);
+        }, 0);
+        
+        return result;
       },
 
       // Shift+Enter: 强制退出代码块
@@ -388,11 +551,18 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
         const { $from } = selection;
 
         if ($from.parent.type.name === 'codeBlock') {
-          return editor
+          const result = editor
             .chain()
             .insertContent('\n')
             .exitCode()
             .run();
+          
+          // 在退出代码块后滚动到光标位置
+          setTimeout(() => {
+            scrollToCursorInEditor(editor);
+          }, 0);
+          
+          return result;
         }
         return false;
       },
@@ -404,8 +574,52 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
         const { $from } = selection;
 
         if ($from.parent.type.name === 'codeBlock') {
-          // 插入两个空格作为缩进
-          return editor.commands.insertContent('  ');
+          const result = editor.commands.insertContent('  ');
+          
+          // 滚动到光标位置
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
+          
+          return result;
+        }
+        return false;
+      },
+
+      // Backspace: 删除字符时滚动
+      Backspace: ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+        const { $from } = selection;
+
+        if ($from.parent.type.name === 'codeBlock') {
+          const result = editor.commands.deleteSelection();
+          
+          // 滚动到光标位置
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
+          
+          return result;
+        }
+        return false;
+      },
+
+      // Delete: 删除字符时滚动
+      Delete: ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+        const { $from } = selection;
+
+        if ($from.parent.type.name === 'codeBlock') {
+          const result = editor.commands.deleteSelection();
+          
+          // 滚动到光标位置
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
+          
+          return result;
         }
         return false;
       },
@@ -426,11 +640,23 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
           
           if (currentLineIndex === 0 && $from.parentOffset === 0) {
             // 移动到代码块上方
-            return editor
+            const result = editor
               .chain()
               .setTextSelection($from.before())
               .run();
+            
+            // 滚动到光标位置
+            setTimeout(() => {
+              scrollToCursorInCodeBlock(editor);
+            }, 0);
+            
+            return result;
           }
+          
+          // 普通向上移动时也滚动
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
         }
         return false;
       },
@@ -444,16 +670,103 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
         if ($from.parent.type.name === 'codeBlock') {
           // 检查是否在最后一行的末尾
           const currentNodeText = $from.parent.textContent;
-          const lines = currentNodeText.split('\n');
           const isLastLine = $from.parentOffset >= currentNodeText.length - 1;
           
           if (isLastLine) {
             // 移动到代码块下方
-            return editor
+            const result = editor
               .chain()
               .setTextSelection($from.after())
               .run();
+            
+            // 滚动到光标位置
+            setTimeout(() => {
+              scrollToCursorInCodeBlock(editor);
+            }, 0);
+            
+            return result;
           }
+          
+          // 普通向下移动时也滚动
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
+        }
+        return false;
+      },
+
+      // 处理向左箭头
+      ArrowLeft: ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+        const { $from } = selection;
+        
+        if ($from.parent.type.name === 'codeBlock') {
+          // 检查是否在行的开始位置
+          const currentNodeText = $from.parent.textContent;
+          const lines = currentNodeText.split('\n');
+          const currentLineIndex = lines.findIndex((_, i) => 
+            lines.slice(0, i + 1).join('\n').length >= $from.parentOffset
+          );
+          
+          if (currentLineIndex === 0 && $from.parentOffset === 0) {
+            // 移动到代码块上方
+            const result = editor
+              .chain()
+              .setTextSelection($from.before())
+              .run();
+            
+            // 滚动到光标位置
+            setTimeout(() => {
+              scrollToCursorInCodeBlock(editor);
+            }, 0);
+            
+            return result;
+          }
+          
+          // 普通向左移动时也滚动
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
+        }
+        return false;
+      },
+
+      // 处理向右箭头
+      ArrowRight: ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+        const { $from } = selection;
+        
+        if ($from.parent.type.name === 'codeBlock') {
+          // 检查是否在行的末尾
+          const currentNodeText = $from.parent.textContent;
+          const lines = currentNodeText.split('\n');
+          const currentLineIndex = lines.findIndex((_, i) => 
+            lines.slice(0, i + 1).join('\n').length >= $from.parentOffset
+          );
+          
+          const isAtLineEnd = $from.parentOffset >= currentNodeText.split('\n').slice(0, currentLineIndex + 1).join('\n').length;
+          
+          if (isAtLineEnd && currentLineIndex === lines.length - 1) {
+            // 移动到代码块下方
+            const result = editor
+              .chain()
+              .setTextSelection($from.after())
+              .run();
+            
+            // 滚动到光标位置
+            setTimeout(() => {
+              scrollToCursorInCodeBlock(editor);
+            }, 0);
+            
+            return result;
+          }
+          
+          // 普通向右移动时也滚动
+          setTimeout(() => {
+            scrollToCursorInCodeBlock(editor);
+          }, 0);
         }
         return false;
       },
@@ -463,10 +776,17 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
   // 添加DOM事件处理器
   addNodeView() {
     return ({ node, editor, getPos }) => {
-      console.log('Creating code block node view');
-      
       const container = document.createElement('div');
       container.classList.add('code-block-wrapper');
+      
+      // 添加唯一ID
+      const blockId = `code-block-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      container.dataset.blockId = blockId;
+      
+      // 如果有设置高度，添加CSS变量
+      if (node.attrs.height) {
+        container.style.setProperty('--code-block-height', `${node.attrs.height}px`);
+      }
 
       // 创建代码块头部
       const header = document.createElement('div');
@@ -477,6 +797,10 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
       language.classList.add('code-block-language');
       language.textContent = node.attrs.language || 'text';
       header.appendChild(language);
+
+      // 创建按钮容器，放在最右边
+      const buttonContainer = document.createElement('div');
+      buttonContainer.classList.add('code-block-actions');
 
       // 添加复制按钮
       const copyButton = document.createElement('button');
@@ -506,7 +830,61 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
           copyButton.classList.remove('text-green-500');
         }, 2000);
       };
-      header.appendChild(copyButton);
+      buttonContainer.appendChild(copyButton);
+
+      // 添加删除按钮
+      const deleteButton = document.createElement('button');
+      deleteButton.classList.add('code-block-delete-button');
+      deleteButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3,6 5,6 21,6"></polyline>
+          <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+        <span>删除</span>
+      `;
+      deleteButton.onclick = async () => {
+        // 获取全局确认对话框函数
+        const showConfirm = getGlobalConfirmDialog();
+        
+        if (showConfirm) {
+          // 使用UI确认对话框
+          await showConfirm({
+            title: '删除代码块',
+            description: '确定要删除这个代码块吗？此操作无法撤销。',
+            variant: 'destructive',
+            onConfirm: () => {
+              // 删除代码块
+              if (typeof getPos === 'function') {
+                const pos = getPos();
+                if (pos >= 0) {
+                  const tr = editor.state.tr.delete(pos, pos + node.nodeSize);
+                  editor.view.dispatch(tr);
+                }
+              }
+            }
+          });
+          
+          // 如果用户确认了删除，onConfirm回调会被自动调用
+        } else {
+          // 降级到原生confirm
+          if (confirm('确定要删除这个代码块吗？')) {
+            // 删除代码块
+            if (typeof getPos === 'function') {
+              const pos = getPos();
+              if (pos >= 0) {
+                const tr = editor.state.tr.delete(pos, pos + node.nodeSize);
+                editor.view.dispatch(tr);
+              }
+            }
+          }
+        }
+      };
+      buttonContainer.appendChild(deleteButton);
+
+      // 将按钮容器添加到头部
+      header.appendChild(buttonContainer);
       
       container.appendChild(header);
 
@@ -529,54 +907,79 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
       pre.classList.add('code-content');
 
       // 节流函数
-      const throttle = (func: Function, limit: number) => {
+      const throttle = (func: () => void, limit: number) => {
         let inThrottle: boolean;
-        let lastResult: any;
-        return function (this: any, ...args: any[]) {
+        return function () {
           if (!inThrottle) {
             inThrottle = true;
-            lastResult = func.apply(this, args);
+            func();
             setTimeout(() => (inThrottle = false), limit);
           }
-          return lastResult;
         };
       };
       
+      // 添加行号与代码内容同步滚动
+      const syncScroll = () => {
+        // 同步垂直滚动位置
+        lineNumbers.scrollTop = pre.scrollTop;
+      };
+      
+      // 使用防抖版本的同步滚动，提高性能
+      const debouncedSyncScroll = (() => {
+        let timer: number | null = null;
+        return () => {
+          if (timer) {
+            cancelAnimationFrame(timer);
+          }
+          timer = requestAnimationFrame(() => {
+            lineNumbers.scrollTop = pre.scrollTop;
+            timer = null;
+          });
+        };
+      })();
+      
       // 更新行号的函数
       const updateLineNumbers = () => {
-        console.group('代码块内容更新');
+        // 获取原始文本内容，尝试多种方式
+        let rawText = '';
         
-        // 获取原始文本内容，保留换行符
-        const rawText = code.innerText || '';
-        console.log('1. 获取代码内容:', rawText);
-        
-        // 分割成行并过滤掉末尾的空行
-        const lines = rawText.split('\n');
-        let totalLines = lines.length;
-        
-        // 如果最后一行是空行且不是唯一的一行，则不计入
-        if (totalLines > 1 && !lines[totalLines - 1].trim()) {
-          totalLines--;
+        // 方法1: 直接从code元素获取文本
+        if (code.textContent) {
+          rawText = code.textContent;
+        }
+        // 方法2: 从node获取文本
+        else if (node.textContent) {
+          rawText = node.textContent;
+        }
+        // 方法3: 从pre元素获取文本
+        else if (pre.textContent) {
+          rawText = pre.textContent;
         }
         
-        // 确保至少有一行
-        const lineCount = Math.max(1, totalLines);
+        // 处理转义的换行符
+        rawText = rawText.replace(/\\n/g, '\n');
+        
+        // 分割成行并计算实际行数，确保空行也被计算
+        const lines = rawText.split('\n');
+        const lineCount = Math.max(1, lines.length);
+        
+        console.log(`代码块 ${blockId} 更新行号:`, {
+          rawText: JSON.stringify(rawText),
+          lines: lines.map((line, i) => `行${i + 1}: "${line}"`),
+          lineCount,
+          currentLineNumbers: lineNumbers.children.length
+        });
         
         // 如果行数没有变化，不更新
         if (lineCount === lineNumbers.children.length) {
-          console.log('行数未变化，跳过更新');
-          console.groupEnd();
+          console.log(`代码块 ${blockId} 行数没有变化，跳过更新`);
           return;
         }
         
-        console.log('行数发生变化，开始更新行号');
-        console.log('- 当前行号数量:', lineNumbers.children.length);
-        console.log('- 新的行数:', lineCount);
+        console.log(`代码块 ${blockId} 开始更新行号，从 ${lineNumbers.children.length} 行更新到 ${lineCount} 行`);
         
         // 清空现有行号
-        while (lineNumbers.firstChild) {
-          lineNumbers.removeChild(lineNumbers.firstChild);
-        }
+        lineNumbers.innerHTML = '';
         
         // 创建新的行号
         const fragment = document.createDocumentFragment();
@@ -588,19 +991,26 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
         }
         lineNumbers.appendChild(fragment);
         
-        console.log('行号更新完成');
-        console.groupEnd();
+        console.log(`代码块 ${blockId} 行号更新完成，当前行号数量: ${lineNumbers.children.length}`);
+        
+        // 确保行号与代码内容同步
+        syncScroll();
       };
 
       // 创建节流版本的更新函数
-      const throttledUpdate = throttle((reason?: string) => {
-        console.log('触发更新，原因:', reason || '未指定');
+      const throttledUpdate = throttle(() => {
         updateLineNumbers();
-      }, 200);
+      }, 100);
 
       if (node.attrs.height) {
         pre.style.maxHeight = `${node.attrs.height}px`;
         lineNumbers.style.maxHeight = `${node.attrs.height}px`;
+        
+        // 强制设置高度
+        pre.style.setProperty('height', `${node.attrs.height}px`, 'important');
+        pre.style.setProperty('max-height', `${node.attrs.height}px`, 'important');
+        lineNumbers.style.setProperty('height', `${node.attrs.height}px`, 'important');
+        lineNumbers.style.setProperty('max-height', `${node.attrs.height}px`, 'important');
       }
       
       content.appendChild(lineNumbers);
@@ -609,38 +1019,123 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
       
       // 添加调整大小手柄
       const resizeHandle = document.createElement('div');
-      resizeHandle.classList.add('resize-handle');
+      resizeHandle.classList.add('code-block_resize-handle');
       resizeHandle.title = '调整高度';
       
+      // 初始化变量
       let startY = 0;
       let startHeight = 0;
+      let isDragging = false;
+      let currentHeight = node.attrs.height || null;
       
-      const onMouseDown = (e: MouseEvent) => {
-        startY = e.clientY;
-        startHeight = node.attrs.height || pre.clientHeight;
-        
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-        e.preventDefault();
-      };
-      
-      const onMouseMove = (e: MouseEvent) => {
-        const newHeight = startHeight + (e.clientY - startY);
+      // 更新DOM高度，但不更新编辑器状态
+      const updateDOMHeight = (newHeight: number) => {
         if (newHeight > 50) {
-          pre.style.maxHeight = `${newHeight}px`;
-          lineNumbers.style.maxHeight = `${newHeight}px`;
+          // 立即更新样式
+          requestAnimationFrame(() => {
+            // 更新CSS变量
+            container.style.setProperty('--code-block-height', `${newHeight}px`);
+            
+            // 更新具体元素的高度
+            pre.style.height = `${newHeight}px`;
+            pre.style.maxHeight = `${newHeight}px`;
+            lineNumbers.style.height = `${newHeight}px`;
+            lineNumbers.style.maxHeight = `${newHeight}px`;
+          });
+          
+          // 保存当前高度到局部变量
+          currentHeight = newHeight;
         }
       };
       
-      const onMouseUp = () => {
+      const onMouseDown = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        isDragging = true;
+        startY = e.clientY;
+        startHeight = parseInt(window.getComputedStyle(pre).height, 10);
+        
+        // 添加拖动状态类
+        resizeHandle.classList.add('is-dragging');
+        container.dataset.dragging = 'true';
+        document.body.style.cursor = 'ns-resize';
+        
+        // 设置全局拖动状态
+        setGlobalResizing(true);
+        
+        // 暂停编辑器的编辑功能
+        editor.setEditable(false);
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      };
+      
+      const onMouseMove = (e: MouseEvent) => {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const deltaY = e.clientY - startY;
+        const newHeight = Math.max(50, startHeight + deltaY);
+        
+        updateDOMHeight(newHeight);
+      };
+      
+      const onMouseUp = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        isDragging = false;
+        
+        // 移除拖动状态类
+        resizeHandle.classList.remove('is-dragging');
+        container.dataset.dragging = 'false';
+        document.body.style.cursor = '';
+        
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         
-        if (typeof getPos === 'function') {
-          const height = parseInt(pre.style.maxHeight, 10);
-          editor.chain().focus().updateAttributes('codeBlock', {
-            height: height,
-          }).run();
+        // 在拖动结束时更新编辑器状态
+        if (currentHeight !== null) {
+          // 确保DOM已完全更新
+          requestAnimationFrame(() => {
+            // 再次检查当前高度
+            const finalHeight = parseInt(window.getComputedStyle(pre).height, 10);
+            
+            // 强制更新节点属性并触发序列化
+            if (typeof getPos === 'function') {
+              const pos = getPos();
+              if (pos >= 0) {
+                // 强制更新节点属性
+                const tr = editor.state.tr.setNodeAttribute(pos, 'height', finalHeight || currentHeight);
+                // 同时更新data-height属性
+                tr.setNodeAttribute(pos, 'data-height', finalHeight || currentHeight);
+                editor.view.dispatch(tr);
+                
+                // 强制触发onChange事件，确保高度被保存
+                setTimeout(() => {
+                  // 触发编辑器的事件
+                  if (typeof editor.options.onUpdate === 'function') {
+                    editor.options.onUpdate({
+                      editor,
+                      transaction: tr
+                    });
+                  }
+                }, 50);
+              }
+            }
+            
+            // 设置全局拖动状态为false并恢复编辑器编辑功能
+            setGlobalResizing(false);
+            editor.setEditable(true);
+          });
+        } else {
+          // 恢复编辑器的编辑功能
+          editor.setEditable(true);
+          // 设置全局拖动状态为false
+          setGlobalResizing(false);
         }
       };
       
@@ -651,25 +1146,79 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
 
       // 添加 MutationObserver 监听代码变化
       const observer = new MutationObserver((mutations) => {
-        console.log('检测到代码变化:', mutations.map(m => ({
-          type: m.type,
-          target: m.target.nodeName,
-          addedNodes: m.addedNodes.length,
-          removedNodes: m.removedNodes.length
-        })));
-        requestAnimationFrame(() => throttledUpdate('MutationObserver触发'));
+        console.log(`代码块 ${blockId} 检测到 ${mutations.length} 个变化`);
+        
+        // 检查是否有任何相关的变化
+        const hasRelevantChanges = mutations.some(mutation => {
+          // 文本内容变化
+          const isTextChange = mutation.type === 'characterData';
+          
+          // 子节点变化（包括换行符等）
+          const isChildListChange = mutation.type === 'childList' && 
+            (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0);
+          
+          // 属性变化（可能影响显示）
+          const isAttributeChange = mutation.type === 'attributes';
+          
+          if (isTextChange || isChildListChange || isAttributeChange) {
+            console.log(`代码块 ${blockId} 相关变化:`, mutation.type);
+          }
+          
+          return isTextChange || isChildListChange || isAttributeChange;
+        });
+        
+        if (hasRelevantChanges) {
+          console.log(`代码块 ${blockId} 触发行号更新`);
+          // 延迟更新，确保DOM完全更新
+          setTimeout(() => {
+            throttledUpdate();
+          }, 10);
+        }
       });
 
-      // 配置 observer
+      // 配置 observer，监听所有相关变化
       observer.observe(code, {
         childList: true,    // 监听子节点的增删
         subtree: true,      // 监听所有后代节点
-        characterData: true // 监听文本内容的变化
+        characterData: true, // 监听文本内容的变化
+        attributes: true    // 监听属性变化
+      });
+      
+      // 同时监听pre元素，确保能捕获到所有变化
+      observer.observe(pre, {
+        childList: true,    // 监听子节点的增删
+        subtree: true,      // 监听所有后代节点
+        characterData: true, // 监听文本内容的变化
+        attributes: true    // 监听属性变化
       });
 
       // 初始化行号
-      throttledUpdate("初始化行号");
+      throttledUpdate();
+      
+      // 延迟再次更新，确保语法高亮完成后行号正确
+      setTimeout(() => {
+        throttledUpdate();
+      }, 100);
+      
+      // 为每个代码块创建独立的更新机制
+      const forceUpdateLineNumbers = () => {
+        throttledUpdate();
+      };
+      
+      // 将当前代码块的更新函数存储到全局映射中
+      const windowWithEditor = window as WindowWithEditor;
+      if (!windowWithEditor.codeBlockUpdateFunctions) {
+        windowWithEditor.codeBlockUpdateFunctions = new Map();
+      }
+      windowWithEditor.codeBlockUpdateFunctions.set(blockId, forceUpdateLineNumbers);
 
+      // 监听代码内容的滚动事件
+      pre.addEventListener('scroll', debouncedSyncScroll, { passive: true });
+      
+      // 确保初始状态也是同步的
+      setTimeout(() => syncScroll(), 0);
+      
+      // 在destroy中清理事件监听
       return {
         dom: container,
         contentDOM: code,
@@ -678,28 +1227,41 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
             return false;
           }
           
-          console.log('代码块节点更新:', {
-            language: updatedNode.attrs.language,
-            height: updatedNode.attrs.height
-          });
-          
-          // 更新语言标识
-          language.textContent = updatedNode.attrs.language || 'text';
-          
-          // 更新高度
-          if (updatedNode.attrs.height) {
-            pre.style.maxHeight = `${updatedNode.attrs.height}px`;
-            lineNumbers.style.maxHeight = `${updatedNode.attrs.height}px`;
+          try {
+            // 更新语言标识
+            language.textContent = updatedNode.attrs.language || 'text';
+            
+            // 更新高度
+            if (updatedNode.attrs.height) {
+              // 更新CSS变量
+              container.style.setProperty('--code-block-height', `${updatedNode.attrs.height}px`);
+              
+              // 强制更新具体元素的高度
+              pre.style.setProperty('height', `${updatedNode.attrs.height}px`, 'important');
+              pre.style.setProperty('max-height', `${updatedNode.attrs.height}px`, 'important');
+              lineNumbers.style.setProperty('height', `${updatedNode.attrs.height}px`, 'important');
+              lineNumbers.style.setProperty('max-height', `${updatedNode.attrs.height}px`, 'important');
+              
+              // 确保更新后滚动位置同步
+              setTimeout(() => syncScroll(), 0);
+            }
+            
+            return true;
+          } catch (err) {
+            console.error('更新代码块视图时出错:', err);
+            return false;
           }
-          
-          // 更新行号
-          throttledUpdate('节点更新触发');
-          
-          return true;
         },
         destroy: () => {
           observer.disconnect();
           resizeHandle.removeEventListener('mousedown', onMouseDown);
+          pre.removeEventListener('scroll', debouncedSyncScroll);
+          
+          // 清理全局映射中的更新函数
+          const windowWithEditor = window as WindowWithEditor;
+          if (windowWithEditor.codeBlockUpdateFunctions) {
+            windowWithEditor.codeBlockUpdateFunctions.delete(blockId);
+          }
         }
       };
     };
@@ -713,11 +1275,17 @@ const EnhancedCodeBlock = CodeBlockLowlight.extend({
 const TiptapEditor = ({
   content,
   onChange,
+  onStateChange,
   className = '',
   placeholder = '开始编写笔记...',
   showToolbar = true // 默认显示工具栏
 }: TiptapEditorProps): React.ReactElement => {
   const isFirstRender = useRef(true);
+  // 添加标志位，用于在拖动过程中禁用onChange事件处理
+  const isResizingCodeBlock = useRef(false);
+  
+  // 使用AlertDialog Hook
+  const { showConfirm } = useAlertDialog();
 
   // 创建编辑器实例
   const editor = useEditor({
@@ -757,6 +1325,8 @@ const TiptapEditor = ({
         lowlight,
         HTMLAttributes: {
           class: 'enhanced-code-block',
+          // 确保不会覆盖我们的data-height属性
+          'data-height': null, // 允许动态设置
         },
       }),
       // 添加折叠扩展
@@ -768,8 +1338,41 @@ const TiptapEditor = ({
         isFirstRender.current = false;
         return;
       }
+      
+      // 如果正在拖动调整代码块大小或进行折叠操作，则不触发onChange
+      if (isResizingCodeBlock.current || getGlobalResizing() || getGlobalFolding()) {
+        return;
+      }
+      
+      // 获取HTML内容
       const html = editor.getHTML();
+      
+      // 调用onChange回调
       onChange?.(html);
+      
+      // 强制更新所有代码块行号
+      const windowWithEditor = window as WindowWithEditor;
+      if (windowWithEditor.codeBlockUpdateFunctions) {
+        console.log('编辑器内容变化，强制更新所有代码块行号');
+        setTimeout(() => {
+          windowWithEditor.codeBlockUpdateFunctions!.forEach((updateFn, blockId) => {
+            console.log(`强制更新代码块 ${blockId} 的行号`);
+            updateFn();
+          });
+        }, 50);
+      }
+    },
+    onSelectionUpdate: ({ editor }) => {
+      // 检查是否在代码块中
+      const { state } = editor;
+      const { selection } = state;
+      const { $from } = selection;
+      const isInCodeBlock = $from.parent.type.name === 'codeBlock';
+      
+      // 通知父组件状态变化
+      if (onStateChange) {
+        onStateChange({ isInCodeBlock });
+      }
     },
     // 启用所有编辑器功能
     enableCoreExtensions: true
@@ -778,6 +1381,10 @@ const TiptapEditor = ({
   // 当content prop变化时更新编辑器内容
   useEffect(() => {
     if (editor && content !== undefined && editor.getHTML() !== content) {
+      // 如果正在进行折叠操作，不更新内容
+      if (getGlobalFolding()) {
+        return;
+      }
       editor.commands.setContent(content, false);
     }
   }, [content, editor])
@@ -795,12 +1402,27 @@ const TiptapEditor = ({
     };
   }, [editor]);
 
+  // 设置全局确认对话框函数
+  useEffect(() => {
+    setGlobalConfirmDialog(showConfirm);
+  }, [showConfirm]);
+
   return (
-    <div className={`tiptap-editor-container w-full ${className}`}>
-      {showToolbar && editor && <EditorToolbar editor={editor} />}
-      <EditorContent editor={editor} className="tiptap-editor" />
+    <div className={`tiptap-editor-container w-full h-full flex flex-col ${className}`}>
+      {/* 工具栏固定在顶部 */}
+      {showToolbar && editor && (
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <EditorToolbar editor={editor} />
+        </div>
+      )}
+      {/* 编辑器内容区域，可滚动 */}
+      {editor && (
+        <div className="flex-1 overflow-y-auto">
+          {React.createElement(EditorContent, { editor, className: "tiptap-editor" })}
+        </div>
+      )}
     </div>
-  )
+  ) as React.ReactElement
 }
 
 export default TiptapEditor 

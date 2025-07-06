@@ -44,6 +44,7 @@ export default function Editor({ noteId }: EditorProps) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [outlineWidth, setOutlineWidth] = useState(300); // 默认大纲宽度
   const [isDragging, setIsDragging] = useState(false);
+  const [isInCodeBlock, setIsInCodeBlock] = useState(false); // 是否在代码块中编辑
 
   // refs
   const titleRef = useRef<HTMLInputElement>(null);
@@ -268,6 +269,11 @@ export default function Editor({ noteId }: EditorProps) {
       // 更新统计信息
       calculateStats(newContent);
     }
+  };
+
+  // 处理编辑器状态变化（如是否在代码块中）
+  const handleEditorStateChange = (state: { isInCodeBlock: boolean }) => {
+    setIsInCodeBlock(state.isInCodeBlock);
   };
 
   // 手动保存笔记
@@ -641,7 +647,11 @@ export default function Editor({ noteId }: EditorProps) {
       <div className="flex flex-1 overflow-hidden">
         {/* 编辑器 */}
         <div className="flex flex-col h-full overflow-y-auto transition-all duration-300" style={{ width: editorWidthPercent }}>
-          <TiptapEditor content={localContent} onChange={handleContentChange} />
+          <TiptapEditor 
+          content={localContent} 
+          onChange={handleContentChange} 
+          onStateChange={handleEditorStateChange}
+        />
         </div>
 
         {/* 大纲面板 */}
@@ -678,6 +688,12 @@ export default function Editor({ noteId }: EditorProps) {
           </div>
           {/* 右侧：快捷键与保存状态 */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* 代码块编辑提示 */}
+            {isInCodeBlock && (
+              <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded mr-2">
+                Shift+Enter 退出代码块
+              </span>
+            )}
             <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded mr-1">快捷键:</span>
             <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">Ctrl+S 保存</span>
             <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">Ctrl+E 预览</span>

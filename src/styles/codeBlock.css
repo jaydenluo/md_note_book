@@ -3,9 +3,58 @@
   position: relative;
   margin: 1rem 0;
   border-radius: 0.5rem;
-  @apply bg-gray-50 dark:bg-gray-700;
-  @apply border border-gray-200 dark:border-gray-700;
+  @apply bg-gray-50 dark:bg-gray-800;
+  @apply border border-gray-200 dark:border-gray-600;
   overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  /* 默认CSS变量 */
+  --code-block-height: auto;
+}
+
+/* 主题切换样式 */
+:root.hljs-github .code-block-wrapper,
+:root.hljs-github .code-content {
+  @apply bg-gray-50;
+}
+
+:root.hljs-github-dark .code-block-wrapper,
+:root.hljs-github-dark .code-content {
+  @apply bg-gray-900;
+}
+
+:root.hljs-atom-one-dark .code-block-wrapper,
+:root.hljs-atom-one-dark .code-content {
+  background-color: #282c34;
+}
+
+:root.hljs-atom-one-light .code-block-wrapper,
+:root.hljs-atom-one-light .code-content {
+  background-color: #fafafa;
+}
+
+:root.hljs-monokai .code-block-wrapper,
+:root.hljs-monokai .code-content {
+  background-color: #272822;
+}
+
+:root.hljs-dracula .code-block-wrapper,
+:root.hljs-dracula .code-content {
+  background-color: #282a36;
+}
+
+:root.hljs-nord .code-block-wrapper,
+:root.hljs-nord .code-content {
+  background-color: #2e3440;
+}
+
+:root.hljs-vs .code-block-wrapper,
+:root.hljs-vs .code-content {
+  background-color: #ffffff;
+}
+
+:root.hljs-solarized-light .code-block-wrapper,
+:root.hljs-solarized-light .code-content {
+  background-color: #fdf6e3;
 }
 
 /* 代码块头部样式 */
@@ -13,10 +62,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 30px;
+  height: 32px;
   padding: 0 0.75rem;
-  @apply bg-gray-100 dark:bg-gray-800;
-  @apply border-b border-gray-200 dark:border-gray-700;
+  @apply border-b border-gray-200 dark:border-gray-600;
+}
+
+/* 代码块头部按钮容器 */
+.code-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem; /* 按钮之间的间距 */
 }
 
 .code-block-language {
@@ -24,6 +79,7 @@
   font-weight: 500;
   @apply text-gray-500 dark:text-gray-400;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .code-block-actions {
@@ -34,91 +90,157 @@
 .code-block-action-button {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
-  background-color: var(--color-button-bg, #e9ecef);
+  @apply bg-gray-200 dark:bg-gray-600;
+  @apply text-gray-700 dark:text-gray-300;
   border: none;
   border-radius: 0.25rem;
-  color: var(--color-button-text, #495057);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
 }
 
 .code-block-action-button:hover {
-  background-color: var(--color-button-hover-bg, #dee2e6);
+  @apply bg-gray-300 dark:bg-gray-500;
 }
 
 /* 代码块内容样式 */
 .code-block-body {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 .code-block-content {
-  position: relative;
-  display: grid;
-  grid-template-columns: min-content 1fr;
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: min-content 1fr !important;
+  align-items: start !important;
+  width: 100% !important;
+  overflow: hidden !important; /* 确保只在代码内容区域滚动 */
+  height: var(--code-block-height, auto) !important; /* 使用CSS变量控制高度 */
 }
 
 /* 行号样式 */
 .code-block-line-numbers {
-  padding: 0.5rem 0;
-  @apply bg-gray-100 dark:bg-gray-700;
-  @apply border-r border-gray-200 dark:border-gray-800;
-  user-select: none;
+  padding: 0.5rem 0 !important;
+  @apply bg-gray-50 dark:bg-gray-800; /* 与代码内容背景色保持一致 */
+  @apply border-r border-gray-200 dark:border-gray-600;
+  user-select: none !important;
   @apply text-gray-500 dark:text-gray-400;
-  font-family: monospace;
-  font-size: 0.875rem;
-  overflow-y: hidden;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace !important;
+  font-size: 0.875rem !important;
+  overflow-y: auto !important; /* 允许垂直滚动 */
+  min-width: 3rem !important;
+  height: var(--code-block-height, 100%) !important; /* 使用CSS变量控制高度 */
+  box-sizing: border-box !important; /* 确保padding不会影响总高度 */
+  scrollbar-width: none !important; /* 隐藏滚动条 */
+  line-height: 1.5 !important; /* 与代码内容相同的行高 */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.code-block-line-numbers::-webkit-scrollbar {
+  display: none; /* 隐藏滚动条 */
 }
 
 .line-number {
   padding: 0 0.75rem;
-  min-width: 2rem;
   text-align: right;
-  height: 1.4em;
-  line-height: 1.4em;
+  height: 1.5em !important;
+  line-height: 1.5 !important;
   white-space: nowrap;
+  @apply text-gray-400 dark:text-gray-500;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  min-height: 1.5em !important;
+  box-sizing: border-box !important;
 }
 
 /* 代码内容样式 */
 .code-content {
-  overflow-x: auto;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  background: none;
-  border: none;
-  white-space: pre;
+  overflow-x: auto !important;
+  overflow-y: auto !important; /* 确保垂直方向可以滚动 */
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+  background: none !important;
+  border: none !important;
+  white-space: pre !important;
   @apply text-gray-700 dark:text-gray-300;
-  @apply bg-gray-50 dark:bg-gray-700;
+  @apply bg-gray-50 dark:bg-gray-800;
+  padding: 0.5rem !important;
+  height: var(--code-block-height, auto) !important; /* 使用CSS变量控制高度 */
+  min-height: 3em !important;
+  box-sizing: border-box !important; /* 确保padding不会影响总高度 */
+  max-height: var(--code-block-height, none) !important; /* 同时设置max-height */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 确保pre元素的高度被正确应用 */
+.code-block-wrapper .code-content {
+  height: var(--code-block-height, auto) !important;
+  max-height: var(--code-block-height, none) !important;
+}
+
+/* 确保行号容器的高度被正确应用 */
+.code-block-wrapper .code-block-line-numbers {
+  height: var(--code-block-height, 100%) !important;
+  max-height: var(--code-block-height, none) !important;
 }
 
 .code-content > code {
   background: none;
   border: none;
   font-family: inherit;
-  padding: 0.5rem;
+  padding: 0;
   white-space: inherit;
   display: block;
-  min-height: 1.4em;
+  min-height: 1.5em;
   @apply text-gray-700 dark:text-gray-300;
+  line-height: 1.5 !important;
 }
 
 /* 确保语法高亮和换行符正确显示 */
 .code-content span {
   display: inline;
   white-space: pre;
+  line-height: 1.5 !important;
+}
+
+/* 确保代码内容中的每一行都有正确的高度 */
+.code-content > code > * {
+  line-height: 1.5 !important;
+  min-height: 1.5em !important;
+}
+
+/* 确保行号容器和代码内容容器的高度完全一致 */
+.code-block-content {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: min-content 1fr !important;
+  align-items: start !important;
+  width: 100% !important;
+  overflow: hidden !important; /* 确保只在代码内容区域滚动 */
+  height: var(--code-block-height, auto) !important; /* 使用CSS变量控制高度 */
+  min-height: 3em !important;
 }
 
 .code-content br {
   display: block;
   content: "";
-  height: 1.4em;
+  height: 1.5em !important;
+  line-height: 1.5 !important;
 }
 
 .code-content .ProseMirror-trailingBreak {
   display: block;
-  height: 1.4em;
+  height: 1.5em !important;
+  line-height: 1.5 !important;
 }
 
 /* 复制按钮样式 */
@@ -130,8 +252,9 @@
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   opacity: 1;
+  @apply hover:bg-gray-200 dark:hover:bg-gray-600;
 }
 
 .code-block-copy-button svg {
@@ -139,24 +262,65 @@
   height: 14px;
 }
 
-.code-block-copy-button:hover {
-  @apply bg-gray-200 dark:bg-gray-700;
+/* 删除按钮样式 */
+.code-block-delete-button {
+  @apply flex items-center gap-1;
+  @apply text-gray-500 dark:text-gray-400;
+  @apply hover:text-red-600 dark:hover:text-red-400;
+  @apply text-xs;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 1;
+  @apply hover:bg-red-50 dark:hover:bg-red-900/20;
+}
+
+.code-block-delete-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* 调整大小手柄样式 */
-.resize-handle {
+.code-block_resize-handle {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 5px;
+  height: 6px;
   cursor: ns-resize;
   background-color: transparent;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s ease;
+  @apply hover:bg-gray-200 dark:hover:bg-gray-600;
 }
 
-.resize-handle:hover {
-  @apply bg-gray-200 dark:bg-gray-700;
+/* 拖动状态样式 */
+.code-block_resize-handle.is-dragging {
+  @apply bg-gray-300 dark:bg-gray-500;
+}
+
+/* 当前拖动的代码块 */
+.code-block-wrapper[data-dragging="true"] {
+  @apply ring-2 ring-blue-400 dark:ring-blue-500;
+  z-index: 10;
+}
+
+.code-block_resize-handle.is-dragging::after {
+  @apply bg-gray-400 dark:bg-gray-400;
+  width: 40px; /* 拖动时显示更长的指示器 */
+}
+
+.code-block_resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 2px;
+  @apply bg-gray-300 dark:bg-gray-500;
+  border-radius: 1px;
+  transition: all 0.2s ease;
 }
 
 /* 图标样式 */

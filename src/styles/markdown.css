@@ -1,8 +1,42 @@
-/* 代码高亮 */
-@import 'highlight.js/styles/github.css';
-
 /* KaTeX 数学公式 */
 @import 'katex/dist/katex.min.css';
+
+/* 代码高亮主题覆盖 */
+.hljs-github-light .markdown-body pre {
+  background-color: #f6f8fa;
+}
+
+.hljs-one-dark .markdown-body pre {
+  background-color: #282c34;
+}
+
+.hljs-github-dark .markdown-body pre {
+  background-color: #161b22;
+}
+
+.hljs-atom-one-light .markdown-body pre {
+  background-color: #fafafa;
+}
+
+.hljs-monokai .markdown-body pre {
+  background-color: #272822;
+}
+
+.hljs-dracula .markdown-body pre {
+  background-color: #282a36;
+}
+
+.hljs-nord .markdown-body pre {
+  background-color: #2e3440;
+}
+
+.hljs-solarized-light .markdown-body pre {
+  background-color: #fdf6e3;
+}
+
+.hljs-vs .markdown-body pre {
+  background-color: #ffffff;
+}
 
 /* Markdown 工具栏样式 */
 .markdown-toolbar {

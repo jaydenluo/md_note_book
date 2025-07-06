@@ -13,10 +13,11 @@ interface AlertDialogProps {
   onConfirm?: () => void;
   onCancel?: () => void;
   type?: "alert" | "confirm";
+  variant?: "default" | "destructive";
 }
 
 // AlertDialog组件
-export function AlertDialog({ open, onOpenChange, title, description, cancelText = "取消", confirmText = "确定", onConfirm, onCancel, type = "alert" }: AlertDialogProps) {
+export function AlertDialog({ open, onOpenChange, title, description, cancelText = "取消", confirmText = "确定", onConfirm, onCancel, type = "alert", variant = "default" }: AlertDialogProps) {
   // 处理确认按钮点击
   const handleConfirm = () => {
     onOpenChange(false);
@@ -33,20 +34,45 @@ export function AlertDialog({ open, onOpenChange, title, description, cancelText
     }
   };
 
+  // 判断是否为删除操作
+  const isDestructive = variant === "destructive" || title.includes("删除") || title.includes("删除");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)' }}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
+      <DialogContent className={`sm:max-w-[425px] ${isDestructive ? 'border-red-200 dark:border-red-800' : ''}`} style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)' }}>
+        <DialogHeader className="text-center">
+          {isDestructive && (
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+          )}
+          <DialogTitle className={`text-lg font-semibold ${isDestructive ? 'text-red-900 dark:text-red-100' : ''}`}>
+            {title}
+          </DialogTitle>
+          {description && (
+            <DialogDescription className={`text-sm ${isDestructive ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-400'}`}>
+              {description}
+            </DialogDescription>
+          )}
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className="gap-3">
           {type === "confirm" && (
-            <Button variant="outline" onClick={handleCancel}>
+            <Button 
+              variant="outline" 
+              onClick={handleCancel}
+              className="min-w-[80px]"
+            >
               {cancelText}
             </Button>
           )}
-          <Button onClick={handleConfirm}>{confirmText}</Button>
+          <Button 
+            onClick={handleConfirm}
+            className={`min-w-[80px] ${isDestructive ? 'bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' : ''}`}
+          >
+            {confirmText}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -63,6 +89,7 @@ type AlertDialogState = {
   onConfirm?: () => void;
   onCancel?: () => void;
   type: "alert" | "confirm";
+  variant?: "default" | "destructive";
 };
 
 // 创建一个Context来管理AlertDialog状态
@@ -131,7 +158,7 @@ export function AlertDialogProvider({ children }: { children: React.ReactNode })
   return (
     <AlertDialogContext.Provider value={{ showAlert, showConfirm }}>
       {children}
-      <AlertDialog open={state.open} onOpenChange={handleOpenChange} title={state.title} description={state.description} cancelText={state.cancelText} confirmText={state.confirmText} onConfirm={state.onConfirm} onCancel={state.onCancel} type={state.type} />
+      <AlertDialog open={state.open} onOpenChange={handleOpenChange} title={state.title} description={state.description} cancelText={state.cancelText} confirmText={state.confirmText} onConfirm={state.onConfirm} onCancel={state.onCancel} type={state.type} variant={state.variant} />
     </AlertDialogContext.Provider>
   );
 }

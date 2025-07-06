@@ -5,6 +5,11 @@
   @apply relative h-full flex flex-col;
 }
 
+/* Tiptap编辑器容器 */
+.tiptap-editor-container {
+  @apply relative h-full flex flex-col;
+}
+
 /* 工具栏样式 */
 .editor-toolbar {
   @apply border-b border-gray-200 dark:border-gray-700 flex-shrink-0;
@@ -119,12 +124,7 @@
   line-height: 1.4 !important;
 }
 
-/* 紧凑编辑器中的代码 */
-.compact-editor code {
-  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200;
-  @apply px-1 py-0.5 rounded text-sm font-mono;
-  line-height: 1.4 !important;
-}
+
 
 .compact-editor pre {
   @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded;
@@ -133,9 +133,6 @@
   line-height: 1.4 !important;
 }
 
-.compact-editor pre code {
-  @apply bg-transparent text-inherit p-0;
-}
 
 /* 紧凑编辑器中的链接 */
 .compact-editor a {
@@ -175,6 +172,17 @@
 .ProseMirror {
   @apply p-3 min-h-full;
   outline: 0;
+}
+
+/* 固定工具栏样式 */
+.tiptap-editor-container .sticky {
+  @apply shadow-sm;
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+.dark .tiptap-editor-container .sticky {
+  background-color: rgba(17, 24, 39, 0.95);
 }
 
 /* 占位符样式 */
@@ -340,21 +348,10 @@
   line-height: 1.4;
 }
 
-/* 代码样式 */
-.ProseMirror code {
-  @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200;
-  @apply text-sm font-mono;
-  line-height: 1.4;
-}
 
 .ProseMirror pre {
   @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200;
   @apply overflow-x-auto border border-gray-200 dark:border-gray-700;
-}
-
-.ProseMirror pre code {
-  @apply bg-transparent text-inherit p-0;
-  padding: 6px 12px
 }
 
 /* 列表样式 - 调整行间距 */

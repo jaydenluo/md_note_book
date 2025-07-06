@@ -8,6 +8,7 @@ import { useTabs } from '@stores/tabsStore'
 import { useConfig } from '@stores/configStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '@utils/theme'
+import { useAutoCodeTheme } from '@utils/theme'
 import { debounce } from '@utils/debounce'
 import { cn } from '@utils/cn'
 import { TabManager } from './components/TabManager'
@@ -167,10 +168,18 @@ function App() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // 应用代码高亮主题
+  useAutoCodeTheme(config.codeTheme.light, config.codeTheme.dark, config.codeTheme.noBackground);
+
   // 应用主题
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark)
-  }, [isDark])
+    document.documentElement.classList.toggle('dark', isDark);
+    // 立即应用代码高亮主题
+    const currentTheme = isDark ? config.codeTheme.dark : config.codeTheme.light;
+    import('@utils/theme').then(({ switchCodeTheme }) => {
+      switchCodeTheme(currentTheme, config.codeTheme.noBackground);
+    });
+  }, [isDark, config.codeTheme.noBackground]);
 
   // 禁用默认右键菜单
   useEffect(() => {
