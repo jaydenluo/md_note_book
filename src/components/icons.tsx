@@ -113,4 +113,51 @@ export const FileTextIcon = ({ className, size = 16 }: { className?: string; siz
     <line x1="8" y1="12" x2="16" y2="12" />
     <line x1="8" y1="16" x2="12" y2="16" />
   </svg>
-); 
+);
+
+// 普通宽度模式图标
+export const NormalWidthIcon = React.forwardRef<
+  SVGSVGElement,
+  React.SVGProps<SVGSVGElement>
+>((props, ref) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    ref={ref}
+    {...props}
+  >
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <line x1="8" y1="4" x2="8" y2="20" />
+    <line x1="16" y1="4" x2="16" y2="20" />
+  </svg>
+));
+
+// 宽屏模式图标
+export const WideWidthIcon = React.forwardRef<
+  SVGSVGElement,
+  React.SVGProps<SVGSVGElement>
+>((props, ref) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    ref={ref}
+    {...props}
+  >
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <line x1="4" y1="4" x2="4" y2="20" />
+    <line x1="20" y1="4" x2="20" y2="20" />
+  </svg>
+));
+
+NormalWidthIcon.displayName = 'NormalWidthIcon';
+WideWidthIcon.displayName = 'WideWidthIcon'; 

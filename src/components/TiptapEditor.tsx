@@ -3,8 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-// import Image from '@tiptap/extension-image'
-// import TextAlign from '@tiptap/extension-text-align'
+import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
@@ -15,6 +14,7 @@ import { genHeadingId } from './Editor' // 导入统一的ID生成函数
 import { Editor, Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { useAlertDialog } from './ui/alert-dialog'
+import { useConfig } from '../stores/configStore'
 // 自定义类型声明
 interface WindowWithEditor extends Window {
   tiptapEditorInstance?: Editor;
@@ -1280,6 +1280,8 @@ const TiptapEditor = ({
   placeholder = '开始编写笔记...',
   showToolbar = true // 默认显示工具栏
 }: TiptapEditorProps): React.ReactElement => {
+  const { config } = useConfig();
+  const isWideMode = config.editorWidthMode === 'wide';
   const isFirstRender = useRef(true);
   // 添加标志位，用于在拖动过程中禁用onChange事件处理
   const isResizingCodeBlock = useRef(false);
@@ -1308,7 +1310,12 @@ const TiptapEditor = ({
         orderedList: {
           keepMarks: true,
           keepAttributes: true
-        }
+        },
+        textAlign: TextAlign.configure({
+          types: ['heading', 'paragraph'],
+          alignments: ['left', 'center', 'right'],
+          defaultAlignment: 'left',
+        }),
       }),
       Underline,
       Link.configure({
@@ -1408,21 +1415,18 @@ const TiptapEditor = ({
   }, [showConfirm]);
 
   return (
-    <div className={`tiptap-editor-container w-full h-full flex flex-col ${className}`}>
-      {/* 工具栏固定在顶部 */}
-      {showToolbar && editor && (
-        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <EditorToolbar editor={editor} />
-        </div>
+    <div className="editor-container">
+      {showToolbar && (
+        <EditorToolbar editor={editor} />
       )}
-      {/* 编辑器内容区域，可滚动 */}
-      {editor && (
-        <div className="flex-1 overflow-y-auto">
-          {React.createElement(EditorContent, { editor, className: "tiptap-editor" })}
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto">
+        <EditorContent 
+          editor={editor} 
+          className={`editor-content ${isWideMode ? 'wide' : ''} ${className}`}
+        />
+      </div>
     </div>
-  ) as React.ReactElement
-}
+  );
+};
 
 export default TiptapEditor 

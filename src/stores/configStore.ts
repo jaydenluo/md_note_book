@@ -18,6 +18,9 @@ export const CODE_THEMES = {
   ]
 } as const;
 
+// 编辑器宽度模式
+export type EditorWidthMode = 'normal' | 'wide';
+
 export interface AppConfig {
   // 自动保存时间（毫秒），0表示不自动保存
   autoSaveInterval: number;
@@ -31,6 +34,8 @@ export interface AppConfig {
     dark: string;  // 暗色模式下的主题
     noBackground: boolean; // 是否禁用主题背景色
   };
+  // 编辑器宽度模式
+  editorWidthMode: EditorWidthMode;
 }
 
 interface ConfigStore {
@@ -53,6 +58,7 @@ const DEFAULT_CONFIG: AppConfig = {
     dark: 'atom-one-dark',      // 默认暗色主题：One Dark（护眼且美观）
     noBackground: false, // 默认启用主题背景色
   },
+  editorWidthMode: 'normal', // 默认使用普通宽度模式
 };
 
 // 创建配置存储，使用persist中间件实现持久化
