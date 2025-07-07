@@ -21,3 +21,47 @@ Tauri模式时，数据保持到SQLite，网页模式时数据保存在localStor
 
 每进入一个新的任务，生成任务依赖关系与优先级，进行任务复杂度分析可行性分析
 统一使用lucide图标，不要去检查lucide图标的可用性。
+不要修改无关的代码
+不要修改无关的代码
+不要修改无关的代码
+
+src/
+├── components/        // 组件目录
+│   ├── Editor.tsx           // 编辑器主组件
+│   ├── EditorToolbar.tsx    // 编辑器工具栏
+│   ├── TiptapEditor.tsx     // Tiptap编辑器集成
+│   ├── MarkdownPreview.tsx  // Markdown预览组件
+│   ├── NoteList.tsx         // 笔记列表组件
+│   ├── NoteTab.tsx          // 笔记标签页组件
+│   ├── Sidebar.tsx          // 侧边栏组件
+│   ├── TagSelector.tsx      // 标签选择器
+│   └── ui/                  // UI基础组件
+│       ├── button.tsx
+│       ├── dialog.tsx
+│       └── ...
+├── stores/           // 状态管理
+│   ├── noteStore.ts        // 笔记数据状态
+│   ├── configStore.ts      // 配置状态
+│   ├── tagStore.ts         // 标签状态
+│   └── tabsStore.ts        // 标签页状态
+├── hooks/            // 自定义Hook
+│   ├── useAutoSave.ts      // 自动保存
+│   ├── useHotkeys.ts       // 快捷键
+│   └── useSearch.ts        // 搜索功能
+├── services/         // 服务层
+│   ├── storage.ts          // 存储服务
+│   └── cloudSync.ts        // 云同步服务
+├── lib/             // 工具库
+│   ├── extensions/         // Tiptap扩展
+│   ├── themes/            // 主题相关
+│   └── utils.ts           // 通用工具函数
+├── utils/           // 工具函数
+│   ├── date.ts            // 日期处理
+│   ├── markdown.ts        // Markdown处理
+│   ├── theme.ts           // 主题工具
+│   └── imageUpload.ts     // 新增：图片上传工具
+└── styles/          // 样式文件
+    ├── editor.css         // 编辑器样式
+    ├── markdown.css       // Markdown样式
+    ├── theme.css          // 主题样式
+    └── image.css          // 新增：图片样式

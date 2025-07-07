@@ -664,4 +664,33 @@ h1, h2, h3, h4, h5, h6 {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+.editor-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+.editor-image.align-left {
+  float: left;
+  margin-right: 1em;
+  margin-bottom: 1em;
+}
+
+.editor-image.align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.editor-image.align-right {
+  float: right;
+  margin-left: 1em;
+  margin-bottom: 1em;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .editor-image {
+  filter: brightness(0.9);
 } 

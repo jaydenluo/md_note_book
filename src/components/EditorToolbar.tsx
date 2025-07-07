@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import { 
   Bold, 
@@ -13,11 +13,12 @@ import {
   Quote,
   Code,
   Code2,
-  Braces,
   FileText,
   Undo,
-  Redo
+  Redo,
+  Image
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useConfig } from '../stores/configStore'
 import { NormalWidthIcon, WideWidthIcon } from './icons'
 
@@ -36,14 +37,14 @@ interface ToolbarButtonProps {
   isText?: boolean
 }
 
-const ToolbarButton: React.FC<ToolbarButtonProps> = ({ 
+const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(({ 
   onClick, 
   isActive = false, 
   icon: Icon, 
   title, 
   disabled = false,
   isText = false
-}) => {
+}, ref) => {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -52,6 +53,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
 
   return (
     <button
+      ref={ref}
       onClick={handleClick}
       disabled={disabled}
       title={title}
@@ -67,14 +69,21 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
       )}
     </button>
   )
-}
+})
+
+ToolbarButton.displayName = 'ToolbarButton'
 
 // 分隔线组件
-const ToolbarSeparator: React.FC = () => {
-  return <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
-}
+const ToolbarSeparator = React.forwardRef<HTMLDivElement>((props, ref) => {
+  return <div ref={ref} className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
+})
+
+ToolbarSeparator.displayName = 'ToolbarSeparator'
 
 const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
+  // 添加文件输入引用
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!editor) {
     return null
   }
@@ -98,6 +107,46 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
   const toggleCodeBlock = () => {
     editor.chain().focus().setNode('codeBlock', { language: 'plaintext' }).run()
   }
+
+  // 添加图片上传处理函数
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && editor) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          try {
+            // 使用setTimeout避免在渲染周期内调用flushSync
+            setTimeout(() => {
+              // 使用增强图片扩展
+              editor.chain().focus().insertContent({
+                type: 'enhancedImage',
+                attrs: {
+                  src: result,
+                  alt: file.name,
+                  size: 'medium',
+                  alignment: 'center',
+                  border: true,
+                  shadow: true
+                }
+              }).run();
+            }, 0);
+          } catch (error) {
+            console.error('插入图片失败:', error);
+          }
+        }
+      };
+      reader.onerror = (error) => {
+        console.error('读取图片文件失败:', error);
+      };
+      reader.readAsDataURL(file);
+    }
+    // 清除文件输入，以便可以重复选择同一文件
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
 
   return (
     <div className="flex items-center gap-1 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
@@ -261,6 +310,22 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       >
         {React.createElement(isWideMode ? NormalWidthIcon : WideWidthIcon, { className: "w-4 h-4" })}
       </button>
+
+      <ToolbarSeparator />
+
+      {/* 添加图片上传按钮 */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageUpload}
+        accept="image/*"
+        className="hidden"
+      />
+      <ToolbarButton
+        onClick={() => fileInputRef.current?.click()}
+        icon={Image}
+        title="上传图片"
+      />
     </div>
   )
 }

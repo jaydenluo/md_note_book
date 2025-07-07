@@ -5,16 +5,19 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
+// import Image from '@tiptap/extension-image' // 移除原始图片扩展
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
 import EditorToolbar from './EditorToolbar'
 import '../styles/editor.css'
 import '../styles/codeBlock.css' // 导入代码块样式
+import '../styles/image.css' // 导入图片样式
 import { genHeadingId } from './Editor' // 导入统一的ID生成函数
 import { Editor, Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { useAlertDialog } from './ui/alert-dialog'
 import { useConfig } from '../stores/configStore'
+import { EnhancedImage } from '../lib/extensions/EnhancedImage' // 导入增强图片扩展
 // 自定义类型声明
 interface WindowWithEditor extends Window {
   tiptapEditorInstance?: Editor;
@@ -1327,6 +1330,14 @@ const TiptapEditor = ({
       Placeholder.configure({
         placeholder,
       }),
+      // 替换为增强图片扩展
+      EnhancedImage.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'editor-image',
+        },
+      }),
       // 使用增强型代码块扩展
       EnhancedCodeBlock.configure({
         lowlight,
@@ -1392,7 +1403,11 @@ const TiptapEditor = ({
       if (getGlobalFolding()) {
         return;
       }
+      
+      // 使用setTimeout避免在渲染周期内调用flushSync
+      setTimeout(() => {
       editor.commands.setContent(content, false);
+      }, 0);
     }
   }, [content, editor])
 
