@@ -9,15 +9,19 @@ import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
 import EditorToolbar from './EditorToolbar'
-import '../styles/editor.css'
-import '../styles/codeBlock.css' // 导入代码块样式
+import '@/styles/editor.css'
+import '@/styles/table.css'
+import '@/styles/codeBlock.css' // 导入代码块样式
 import '../styles/image.css' // 导入图片样式
+import '../styles/table.css'
 import { genHeadingId } from './Editor' // 导入统一的ID生成函数
 import { Editor, Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { useAlertDialog } from './ui/alert-dialog'
 import { useConfig } from '../stores/configStore'
 import { EnhancedImage } from '../lib/extensions/EnhancedImage' // 导入增强图片扩展
+import { CustomTable, CustomTableCell, TableRow, TableHeader } from '../lib/extensions/table'
+import { TableBubbleMenu } from './ui/table-bubble-menu'
 // 自定义类型声明
 interface WindowWithEditor extends Window {
   tiptapEditorInstance?: Editor;
@@ -1314,11 +1318,11 @@ const TiptapEditor = ({
           keepMarks: true,
           keepAttributes: true
         },
-        textAlign: TextAlign.configure({
+      }),
+      TextAlign.configure({
           types: ['heading', 'paragraph'],
           alignments: ['left', 'center', 'right'],
           defaultAlignment: 'left',
-        }),
       }),
       Underline,
       Link.configure({
@@ -1343,12 +1347,36 @@ const TiptapEditor = ({
         lowlight,
         HTMLAttributes: {
           class: 'enhanced-code-block',
-          // 确保不会覆盖我们的data-height属性
-          'data-height': null, // 允许动态设置
+          'data-height': null,
         },
       }),
       // 添加折叠扩展
       createHeadingFoldingExtension(),
+      // 表格扩展
+      CustomTable.configure({
+        resizable: true,
+        handleWidth: 6,
+        cellMinWidth: 50,
+        lastColumnResizable: true,
+        HTMLAttributes: {
+          class: 'tiptap-table',
+        },
+      }),
+      TableRow.configure({
+        HTMLAttributes: {
+          class: 'tiptap-table-row',
+        },
+      }),
+      TableHeader.configure({
+        HTMLAttributes: {
+          class: 'tiptap-table-header',
+        },
+      }),
+      CustomTableCell.configure({
+        HTMLAttributes: {
+          class: 'tiptap-table-cell',
+        },
+      }),
     ],
     content: content || '',
     onUpdate: ({ editor }) => {
@@ -1393,7 +1421,42 @@ const TiptapEditor = ({
       }
     },
     // 启用所有编辑器功能
-    enableCoreExtensions: true
+    enableCoreExtensions: true,
+    onCreate: ({ editor }) => {
+      // 添加行高调整事件处理
+      const handleRowResize = (event: MouseEvent) => {
+        const target = event.target as HTMLElement
+        if (!target.closest('tr')) return
+
+        const tr = target.closest('tr')
+        if (!tr) return
+
+        const startY = event.pageY
+        const startHeight = tr.offsetHeight
+
+        const handleMouseMove = (e: MouseEvent) => {
+          const currentY = e.pageY
+          const diff = currentY - startY
+          const newHeight = Math.max(40, startHeight + diff)
+          tr.style.height = `${newHeight}px`
+        }
+
+        const handleMouseUp = () => {
+          document.removeEventListener('mousemove', handleMouseMove)
+          document.removeEventListener('mouseup', handleMouseUp)
+        }
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
+      }
+
+      editor.view.dom.addEventListener('mousedown', (event) => {
+        const target = event.target as HTMLElement
+        if (target.closest('tr > td:first-child::before')) {
+          handleRowResize(event)
+        }
+      })
+    },
   })
 
   // 当content prop变化时更新编辑器内容
@@ -1430,11 +1493,16 @@ const TiptapEditor = ({
   }, [showConfirm]);
 
   return (
-    <div className="editor-container">
-      {showToolbar && (
-        <EditorToolbar editor={editor} />
+    <div className="flex flex-col h-full">
+      {editor && (
+        <>
+          {showToolbar && (
+            <EditorToolbar editor={editor} />
+          )}
+        </>
       )}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto relative">
+        {editor && <TableBubbleMenu editor={editor} />}
         <EditorContent 
           editor={editor} 
           className={`editor-content ${isWideMode ? 'wide' : ''} ${className}`}

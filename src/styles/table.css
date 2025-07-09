@@ -1,0 +1,242 @@
+
+
+.ProseMirror td p {
+  margin-bottom: 0px; 
+}
+.ProseMirror th p {
+  margin-bottom: 0px; 
+}
+
+/* 列宽调整手柄样式优化 */
+.column-resize-handle {
+  position: absolute;
+  right: -2px; /* 调整位置，让手柄更容易点击 */
+  top: 0;
+  bottom: 0;
+  width: 4px; /* 增加宽度，更容易点击 */
+  background-color: transparent; /* 默认透明 */
+  cursor: col-resize;
+  z-index: 20;
+  transition: background-color 0.2s ease;
+}
+
+/* 悬停时显示调整手柄 */
+.column-resize-handle:hover,
+.ProseMirror.resize-cursor .column-resize-handle {
+  background-color: #d3f1ff;
+}
+
+/* 暗色模式下的调整手柄 */
+.dark .column-resize-handle:hover,
+.dark .ProseMirror.resize-cursor .column-resize-handle {
+  background-color: #737373;
+}
+
+/* 调整时的光标样式 */
+.ProseMirror.resize-cursor {
+  cursor: col-resize !important;
+}
+
+/* 表格单元格对齐方式 */
+.ProseMirror table td[data-text-align="left"],
+.ProseMirror table th[data-text-align="left"] {
+  text-align: left;
+}
+
+.ProseMirror table td[data-text-align="center"],
+.ProseMirror table th[data-text-align="center"] {
+  text-align: center;
+}
+
+.ProseMirror table td[data-text-align="right"],
+.ProseMirror table th[data-text-align="right"] {
+  text-align: right;
+}
+
+/* 表格基础样式 */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 0;
+  width: 100%;
+  table-layout: fixed; /* 固定布局，必须使用fixed布局才能调整列宽 */
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* 表格包装器样式 */
+.tableWrapper {
+  position: relative;
+  margin: 1em 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+/* 自定义滚动条样式 */
+.tableWrapper::-webkit-scrollbar {
+  height: 6px; /* 横向滚动条高度 */
+  background-color: transparent;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 3px;
+}
+
+.tableWrapper::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* 暗色模式滚动条 */
+.dark .tableWrapper::-webkit-scrollbar-thumb {
+  background-color: #475569;
+}
+
+.table-content {
+  width: max-content; /* 确保内容不会被压缩 */
+  min-width: 100%; /* 至少占满容器宽度 */
+  position: relative;
+}
+
+/* 表格单元格样式 */
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #e2e8f0;
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 8px;
+  position: relative;
+  vertical-align: top;
+  background-color: #fff;
+  transition: background-color 0.2s ease;
+  word-wrap: break-word; /* 允许内容换行 */
+  overflow-wrap: break-word;
+}
+
+.ProseMirror table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+/* 暗色模式 */
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+  border-color: #334155;
+  background-color: #1e293b;
+}
+
+/* 表格单元格选中样式 */
+.ProseMirror table .selectedCell {
+  background-color: #eaeaea;
+}
+
+.dark .ProseMirror table .selectedCell {
+  background-color: #132035;
+}
+
+/* 表格拖动把手样式 */
+.table-drag-handle {
+  position: absolute;
+  left: -28px;
+  top: 10px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  cursor: move;
+  opacity: 0;
+  transition: opacity 0.2s;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.table-drag-handle::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  top: -8px;
+  bottom: -8px;
+}
+
+/* 拖动把手图标样式 */
+.table-drag-handle svg {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  opacity: 0.8;
+}
+
+.table-drag-handle:hover svg {
+  opacity: 1;
+  color: #475569;
+}
+
+/* 悬停和拖动状态 */
+.table-container:hover .table-drag-handle,
+.table-container.dragging .table-drag-handle {
+  opacity: 1;
+}
+
+.table-container .table-drag-handle:hover,
+.table-container.dragging .table-drag-handle {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* 拖动状态样式 */
+.table-container.dragging {
+  cursor: move;
+  user-select: none;
+  opacity: 0.7;
+  z-index: 100;
+}
+
+/* 暗色模式适配 */
+.dark .table-drag-handle {
+  background-color: #1e293b;
+  border-color: #475569;
+}
+
+.dark .table-drag-handle:hover {
+  background-color: #334155;
+  border-color: #64748b;
+}
+
+.dark .table-drag-handle svg {
+  color: #94a3b8;
+}
+
+.dark .table-drag-handle:hover svg {
+  color: #e2e8f0;
+}
+
+/* 表格拖放占位符样式 */
+.table-drag-placeholder {
+  border: 2px dashed var(--border);
+  background: var(--accent-2);
+  margin: 1em 0;
+  border-radius: 4px;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+/* 表格拖动指示器 */
+.table-drop-indicator {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary);
+  pointer-events: none;
+  z-index: 1000;
+} 

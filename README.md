@@ -93,7 +93,14 @@ rm  node_modules
 
 
 
-
+   .table-drag-handle::before {
+     content: '';
+     position: absolute;
+     left: -8px;
+     right: -8px;
+     top: -8px;
+     bottom: -8px;
+   }
 
 
 

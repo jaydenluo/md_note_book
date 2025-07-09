@@ -2,7 +2,7 @@
 .code-block-wrapper {
   position: relative;
   margin: 1rem 0;
-  border-radius: 0.5rem;
+  border-radius: 3px;
   @apply bg-gray-50 dark:bg-gray-800;
   @apply border border-gray-200 dark:border-gray-600;
   overflow: hidden;
