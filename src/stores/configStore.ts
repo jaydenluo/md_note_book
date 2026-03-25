@@ -51,7 +51,7 @@ interface ConfigStore {
 // 默认配置
 const DEFAULT_CONFIG: AppConfig = {
   autoSaveInterval: 800, // 默认800毫秒自动保存
-  dataPath: './data', // 默认为程序目录下的data文件夹
+  dataPath: '', // 空字符串表示使用系统默认的 AppData 目录
   lastSelectedPath: '', // 上次选择的路径，用于文件选择器的默认路径
   codeTheme: {
     light: 'github', // 默认亮色主题：GitHub Light（清晰易读）

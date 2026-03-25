@@ -17,10 +17,28 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
+html, body, #root {
+  width: 100%;
+  height: 100%;
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+  @apply bg-background;
+}
+
+html {
+  /* 移除 scrollbar-gutter，因为它会预留滚动条空间，在大屏且无滚动条时可能导致右侧出现空白缝隙 */
+}
+
+body {
   min-width: 320px;
-  min-height: 100vh;
+}
+
+/* 兼容不支持 scrollbar-gutter 的浏览器 */
+@supports not (scrollbar-gutter: stable) {
+  html {
+    overflow-y: scroll;
+  }
 }
 
 /* 工具提示 */

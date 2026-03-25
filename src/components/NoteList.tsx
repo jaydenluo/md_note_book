@@ -5,8 +5,11 @@ import { useTags } from '@stores/tagStore'
 import { formatDate } from '@utils/date'
 import { useSearch } from '@hooks/useSearch'
 import { useHotkeys } from '@hooks/useHotkeys'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Plus, Tag, Calendar, Clock, X } from 'lucide-react'
+import { useAlertDialog } from '@/components/ui/alert-dialog'
+import { ContextMenu, useContextMenu } from './ui/ContextMenu'
+import type { ContextMenuItem } from './ui/ContextMenu'
+import { ExportService } from '@services/exportService'
+import { FileText, FileDown, Trash2 } from 'lucide-react'
 
 interface NoteListProps {
   selectedNoteId: string | null
@@ -26,9 +29,11 @@ export const NoteList: FC<NoteListProps> = ({
   
   const notes = useNotes(state => state.notes)
   const createNote = useNotes(state => state.createNote)
+  const deleteNote = useNotes(state => state.deleteNote)
   const isLoading = useNotes(state => state.isLoading)
   const tags = useTags(state => state.tags)
   const getNoteTags = useTags(state => state.getNoteTags)
+  const { showConfirm } = useAlertDialog()
 
   const filteredNotes = useMemo(() => {
     return notes
@@ -135,8 +140,8 @@ export const NoteList: FC<NoteListProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="py-0 px-3 h-9 border-b dark:border-gray-700 flex items-center">
-        <div className="relative flex-1 mr-2">
+      <div className="py-0 px-3 h-9 border-b dark:border-gray-700 flex items-center gap-2">
+        <div className="relative flex-1">
           <Search size={16} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             ref={searchInputRef}
@@ -155,6 +160,20 @@ export const NoteList: FC<NoteListProps> = ({
             </button>
           )}
         </div>
+        
+        {/* 高级搜索按钮 */}
+        <AdvancedSearchDialog 
+          onSelectNote={onSelectNote}
+          trigger={
+            <button 
+              className="h-7 px-2 text-xs border rounded bg-transparent dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1"
+              title="高级搜索"
+            >
+              <Settings size={12} />
+            </button>
+          }
+        />
+        
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
@@ -225,18 +244,38 @@ export const NoteList: FC<NoteListProps> = ({
         ) : (
         <AnimatePresence>
           {displayedNotes.map((note, index) => (
-            <motion.button
+            <motion.div
               key={note.id}
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -20, opacity: 0 }}
               transition={{ delay: index * 0.05 }}
-              onClick={() => onSelectNote(note.id)}
-                className={`w-full p-4 text-left border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                  selectedNoteId === note.id ? 'bg-blue-50 dark:bg-gray-700 border-l-4 border-l-blue-500' : ''
+              className={`group relative w-full p-4 text-left border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer ${
+                selectedNoteId === note.id ? 'bg-blue-50 dark:bg-gray-700 border-l-4 border-l-blue-500' : ''
               }`}
+              onClick={() => onSelectNote(note.id)}
             >
-                <h3 className="font-medium truncate">{note.title || '无标题'}</h3>
+                <div className="flex justify-between items-start">
+                  <h3 className="font-medium truncate pr-6">{note.title || '无标题'}</h3>
+                  <div className="absolute right-2 top-4 hidden group-hover:flex items-center space-x-1">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const confirmed = await showConfirm({
+                          title: '确认删除',
+                          description: `确定要删除笔记 "${note.title || '无标题'}" 吗？`
+                        });
+                        if (confirmed) {
+                          await deleteNote(note.id);
+                        }
+                      }}
+                      className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900 text-gray-400 hover:text-red-500 transition-colors"
+                      title="删除笔记"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate line-clamp-2">
                   {note.content || '空笔记'}
               </p>
@@ -259,20 +298,10 @@ export const NoteList: FC<NoteListProps> = ({
                       {tag.name}
                     </motion.span>
                   ))}
-                      {getNoteTags(note.id).length > 3 && (
-                        <motion.span
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.8, opacity: 0 }}
-                          className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700"
-                        >
-                          +{getNoteTags(note.id).length - 3}
-                        </motion.span>
-                      )}
                 </AnimatePresence>
                   </div>
               </div>
-            </motion.button>
+            </motion.div>
           ))}
         </AnimatePresence>
         )}

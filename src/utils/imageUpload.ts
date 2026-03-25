@@ -1,5 +1,5 @@
 // 图片上传工具函数
-import { compress } from 'browser-image-compression'
+import imageCompression from 'browser-image-compression'
 
 // 图片上传配置接口
 interface ImageUploadOptions {
@@ -32,7 +32,7 @@ export async function handleImageUpload(
     const compressOptions = { ...defaultOptions, ...options }
 
     // 压缩图片
-    const compressedFile = await compress(file, compressOptions)
+    const compressedFile = await imageCompression(file, compressOptions)
 
     // 转换为 base64
     return new Promise((resolve, reject) => {

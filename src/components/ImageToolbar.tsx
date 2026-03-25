@@ -5,9 +5,9 @@ import {
   AlignCenter,
   AlignRight,
   Trash,
-  ImageDown,
+  Download,
   Square,
-  ImagePlus,
+  Plus,
   Frame,
 } from 'lucide-react';
 
@@ -50,10 +50,10 @@ const ToolbarButton = memo(function ToolbarButton({ onClick, icon, title, isActi
 const getSizeIcon = (size: string) => {
   const iconProps = { size: 16 };
   switch (size) {
-    case 'small': return React.createElement(ImageDown, { ...iconProps, className: "transform scale-75" });
-    case 'medium': return React.createElement(ImageDown, iconProps);
-    case 'large': return React.createElement(ImageDown, { ...iconProps, className: "transform scale-125" });
-    default: return React.createElement(ImageDown, iconProps);
+    case 'small': return React.createElement(Download, { ...iconProps, className: "transform scale-75" });
+    case 'medium': return React.createElement(Download, iconProps);
+    case 'large': return React.createElement(Download, { ...iconProps, className: "transform scale-125" });
+    default: return React.createElement(Download, iconProps);
   }
 };
 
@@ -94,7 +94,7 @@ const ImageToolbar: React.FC<ImageToolbarProps> = ({
     const nextSize = sizes[(currentIndex + 1) % sizes.length];
     
     // 根据原始尺寸计算新尺寸
-    let newWidth, newHeight;
+    let newWidth: number = 500, newHeight: number = 500;
     if (width && height) {
       const ratio = height / width;
       switch (nextSize) {
@@ -158,6 +158,9 @@ const ImageToolbar: React.FC<ImageToolbarProps> = ({
       }
     }, 0);
   };
+
+  // 移除未使用的editor参数
+  const _ = editor;
 
   return React.createElement('div', {
     className: "absolute -top-10 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-md p-1 flex items-center gap-1 z-10",

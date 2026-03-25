@@ -4,18 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
-import { Settings, Save } from 'lucide-react';
+import { Settings, Save, RotateCcw } from 'lucide-react';
+import { storage } from '@services/storage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-// 声明Tauri全局变量
-declare global {
-  interface Window {
-    __TAURI__?: any;
-  }
-}
-
-// 检测是否在Tauri环境中运行
-const isTauriApp = typeof window !== 'undefined' && window.__TAURI__ !== undefined;
+import { isTauriApp, tauriEnvironment } from '@utils/tauri';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -31,6 +23,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     dataPath: config.dataPath,
     codeTheme: config.codeTheme,
   });
+  
+  // 搜索索引管理状态
+  const [isRebuildingIndex, setIsRebuildingIndex] = useState(false);
+  const [indexRebuildSuccess, setIndexRebuildSuccess] = useState<boolean | null>(null);
 
   // 当配置变化时更新本地状态
   useEffect(() => {
@@ -43,7 +39,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // 处理输入变化
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     
     if (name === 'autoSaveInterval') {
       // 确保自动保存时间是一个非负数
@@ -52,6 +48,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         ...localConfig,
         [name]: isNaN(numValue) ? 0 : Math.max(0, numValue),
       });
+    } else if (type === 'checkbox') {
+      setLocalConfig({
+        ...localConfig,
+        [name]: checked,
+      });
+      
+
     } else {
       setLocalConfig({
         ...localConfig,
@@ -62,21 +65,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // 选择文件夹路径（仅在Tauri环境中可用）
   const selectFolder = async () => {
-    if (!isTauriApp) {
+    if (!(await isTauriApp())) {
       alert('此功能仅在桌面应用中可用');
       return;
     }
 
     try {
       // 动态导入Tauri对话框API
-      const { dialog } = await import('@tauri-apps/api');
-      const { path } = await import('@tauri-apps/api');
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { homeDir } = await import('@tauri-apps/api/path');
       
       // 打开文件夹选择对话框
-      const selected = await dialog.open({
+      const selected = await open({
         directory: true,
         multiple: false,
-        defaultPath: config.lastSelectedPath || await path.homeDir(),
+        defaultPath: config.lastSelectedPath || await homeDir(),
       });
 
       if (selected) {
@@ -119,6 +122,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       },
     });
   };
+  
+
 
   // 保存设置
   const saveSettings = () => {
@@ -128,6 +133,80 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       codeTheme: localConfig.codeTheme,
     });
     onOpenChange(false);
+  };
+
+  const handleDataPathChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newPath = event.target.value;
+    if (!tauriEnvironment.isTauri) {
+      console.warn('非Tauri环境不支持修改数据路径');
+      return;
+    }
+    // 更新本地状态
+    setLocalConfig({
+      ...localConfig,
+      dataPath: newPath,
+    });
+
+    // 保存配置
+    updateConfig({
+      dataPath: newPath,
+    });
+  };
+
+  const handleSelectPath = async () => {
+    if (!tauriEnvironment.isTauri) {
+      alert('此功能仅在桌面应用中可用');
+      return;
+    }
+
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { homeDir } = await import('@tauri-apps/api/path');
+
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: config.lastSelectedPath || await homeDir(),
+      });
+
+      if (selected) {
+        const folderPath = selected as string;
+        setLocalConfig({
+          ...localConfig,
+          dataPath: folderPath,
+        });
+        updateConfig({
+          lastSelectedPath: folderPath,
+          dataPath: folderPath,
+        });
+      }
+    } catch (error) {
+      console.error('选择文件夹失败:', error);
+    }
+  };
+
+  // 重建搜索索引
+  const handleRebuildSearchIndex = async () => {
+    if (!tauriEnvironment.isTauri) {
+      alert('搜索索引功能仅在桌面应用中可用');
+      return;
+    }
+
+    try {
+      setIsRebuildingIndex(true);
+      setIndexRebuildSuccess(null);
+      
+      await storage.rebuildSearchIndex();
+      
+      setIndexRebuildSuccess(true);
+      setTimeout(() => setIndexRebuildSuccess(null), 3000);
+    } catch (error) {
+      console.error('重建搜索索引失败:', error);
+      setIndexRebuildSuccess(false);
+      setTimeout(() => setIndexRebuildSuccess(null), 3000);
+    } finally {
+      setIsRebuildingIndex(false);
+    }
   };
 
   return (
@@ -189,14 +268,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   id="dataPath"
                   name="dataPath"
                   value={localConfig.dataPath}
-                  onChange={handleChange}
+                  onChange={handleDataPathChange}
                   placeholder="./data"
                   className="flex-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700"
-                  readOnly={isTauriApp}
+                  readOnly={tauriEnvironment.isTauri}
                 />
                                   <Button 
                     variant="outline" 
-                    onClick={selectFolder}
+                    onClick={handleSelectPath}
                     className="px-4 bg-white border-blue-300 hover:bg-blue-50 dark:bg-gray-800 dark:border-blue-800 dark:hover:bg-blue-900"
                   >
                     浏览
@@ -207,12 +286,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </p>
             </div>
           </motion.div>
+          
+
 
           {/* 代码高亮主题设置 */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
             className="flex items-start"
           >
             <div className="w-1/4 text-right pr-6 pt-2">
@@ -259,40 +340,77 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </Select>
               </div>
               
-              {/* 主题背景色控制 */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500 dark:text-gray-400 w-20">透明背景</span>
+              {/* 透明背景选项 */}
                 <div className="flex items-center">
                   <input
+                  id="noBackground"
                     type="checkbox"
-                    id="noBackground"
                     checked={localConfig.codeTheme.noBackground}
                     onChange={(e) => handleNoBackgroundChange(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-700 text-blue-600"
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <label htmlFor="noBackground" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                    使用透明背景（仅保留文本颜色）
+                <label htmlFor="noBackground" className="ml-2 block text-sm text-gray-500 dark:text-gray-400">
+                  代码块透明背景
                   </label>
-                </div>
               </div>
             </div>
           </motion.div>
+
+          {/* 搜索索引管理 */}
+          {tauriEnvironment.isTauri && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+              className="flex items-start"
+            >
+              <div className="w-1/4 text-right pr-6 pt-2">
+                <span className="text-sm font-medium">搜索索引</span>
+              </div>
+              <div className="w-3/4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Button 
+                    onClick={handleRebuildSearchIndex}
+                    disabled={isRebuildingIndex}
+                    variant="outline"
+                    className="flex items-center gap-2 bg-white border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
+                  >
+                    <RotateCcw className={`w-4 h-4 ${isRebuildingIndex ? 'animate-spin' : ''}`} />
+                    {isRebuildingIndex ? '重建中...' : '重建索引'}
+                  </Button>
+                  
+                  {indexRebuildSuccess !== null && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className={`text-sm px-3 py-1 rounded-full ${
+                        indexRebuildSuccess 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                          : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                      }`}
+                    >
+                      {indexRebuildSuccess ? '重建成功' : '重建失败'}
+                    </motion.div>
+                  )}
+                </div>
+                
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  重建全文搜索索引可以提高搜索性能和准确性。
+                  如果搜索结果不准确或缺失，请尝试重建索引。
+                </p>
+              </div>
+            </motion.div>
+          )}
         </div>
         
-        <DialogFooter className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-800">
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)} 
-            className="min-w-[80px] bg-white border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700"
-          >
-            取消
-          </Button>
+        <DialogFooter className="mt-8 border-t border-gray-300 dark:border-gray-800 pt-4">
           <Button 
             onClick={saveSettings} 
-            className="min-w-[80px] bg-blue-600 hover:bg-blue-700 flex items-center gap-1"
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
-            保存
+            保存设置
           </Button>
         </DialogFooter>
       </DialogContent>

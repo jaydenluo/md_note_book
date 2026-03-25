@@ -245,3 +245,75 @@ export function clearMarkdownCache() {
 
 // 导出markdown实例
 export { md } 
+
+/**
+ * 清理字符串，使其适合作为文件名
+ * 移除非法字符，替换空格为下划线
+ */
+export function sanitizeFilename(filename: string): string {
+  if (!filename) return 'untitled';
+  
+  // 移除非法字符
+  return filename
+    .replace(/[<>:"/\\|?*]/g, '') // 移除Windows文件系统不允许的字符
+    .replace(/\s+/g, '_') // 将空格替换为下划线
+    .replace(/\.\./g, '.') // 防止路径遍历攻击
+    .replace(/^\.+|\.+$/g, '') // 移除开头和结尾的点
+    .trim()
+    .substring(0, 100); // 限制长度
+}
+
+/**
+ * 从HTML内容中提取纯文本
+ */
+export function extractTextFromHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '') // 移除HTML标签
+    .replace(/&nbsp;/g, ' ') // 替换特殊字符
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+/**
+ * 生成笔记摘要
+ */
+export function generateNoteSummary(content: string, maxLength: number = 100): string {
+  const text = extractTextFromHtml(content);
+  
+  if (text.length <= maxLength) {
+    return text;
+  }
+  
+  return text.substring(0, maxLength) + '...';
+}
+
+/**
+ * 从Markdown内容中提取标题
+ */
+export function extractTitleFromMarkdown(markdown: string): string {
+  // 先尝试从YAML前置元数据中提取标题
+  const yamlMatch = markdown.match(/^---\n([\s\S]*?)\n---\n/);
+  if (yamlMatch && yamlMatch[1]) {
+    const titleMatch = yamlMatch[1].match(/title:\s*(.+)$/m);
+    if (titleMatch && titleMatch[1]) {
+      return titleMatch[1].trim();
+    }
+  }
+  
+  // 然后尝试从第一个标题中提取
+  const headingMatch = markdown.match(/^#\s+(.+)$/m);
+  if (headingMatch && headingMatch[1]) {
+    return headingMatch[1].trim();
+  }
+  
+  // 最后尝试从第一行非空文本中提取
+  const firstLineMatch = markdown.match(/^(?!#)(.+)$/m);
+  if (firstLineMatch && firstLineMatch[1]) {
+    const firstLine = firstLineMatch[1].trim();
+    return firstLine.length > 30 ? firstLine.substring(0, 30) + '...' : firstLine;
+  }
+  
+  return 'Untitled';
+} 

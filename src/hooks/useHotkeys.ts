@@ -19,7 +19,7 @@ export function useHotkeys(hotkeyMap: HotkeyMap) {
     const hotkey = parts.join('+')
     const callback = hotkeyMap[hotkey]
 
-    if (callback) {
+    if (typeof callback === 'function') {
       e.preventDefault()
       callback(e)
     }

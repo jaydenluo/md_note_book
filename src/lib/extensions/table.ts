@@ -3,6 +3,15 @@ import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
+import { EditorState } from 'prosemirror-state'
+import { findParentNode } from '@tiptap/core'
+
+// 自定义函数：获取当前选中的单元格
+function getSelectionCell(state: EditorState) {
+  return findParentNode(
+    node => node.type.name === 'tableCell' || node.type.name === 'tableHeader',
+  )(state.selection)
+}
 
 // 自定义表格扩展
 const CustomTable = Table.extend({
@@ -22,7 +31,7 @@ const CustomTable = Table.extend({
     }
   }
 })
-
+              
 // 自定义表格单元格扩展，支持对齐属性
 const CustomTableCell = TableCell.extend({
   addAttributes() {
@@ -30,10 +39,13 @@ const CustomTableCell = TableCell.extend({
       ...this.parent?.(),
       textAlign: {
         default: 'left',
-        parseHTML: element => element.style.textAlign || 'left',
-        renderHTML: attributes => ({
-          style: `text-align: ${attributes.textAlign}`,
-        }),
+        parseHTML: element => element.style.textAlign || element.getAttribute('data-text-align') || 'left',
+        renderHTML: attributes => {
+          return {
+            style: `text-align: ${attributes.textAlign}`,
+            'data-text-align': attributes.textAlign,
+          }
+        },
       },
       // 添加列宽属性
       width: {
@@ -42,6 +54,31 @@ const CustomTableCell = TableCell.extend({
         renderHTML: attributes => ({
           style: attributes.width ? `width: ${attributes.width}` : null,
         }),
+      },
+    }
+  },
+  
+  // 添加设置单元格属性的命令
+  addCommands() {
+    return {
+      ...this.parent?.(),
+      // 设置单元格属性命令
+      setCellAttribute: (attributeName, attributeValue) => ({ tr, state, dispatch }) => {
+        // 获取当前选中的单元格
+        const cell = getSelectionCell(state)
+        
+        if (cell) {
+          if (dispatch) {
+            tr.setNodeMarkup(cell.pos, undefined, {
+              ...cell.node.attrs,
+              [attributeName]: attributeValue,
+                })
+              }
+          
+          return true
+        }
+        
+        return false
       },
     }
   },

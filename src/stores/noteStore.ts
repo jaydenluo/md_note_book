@@ -1,47 +1,198 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 import { storage } from '../services/storage'
+import { markdownStorage } from '../services/markdownStorage'
+import { tauriEnvironment } from '@utils/tauri';
+import { useEffect } from 'react';
+import { getDataRootDir } from '@/services/fileDataStorage'
+import { GitSyncService } from '@/services/gitSync'
+import { useTabs } from './tabsStore'
 
+// 定义笔记类型
 export interface Note {
-  id: string
-  title: string
-  content: string
-  categoryId: string | null
-  createdAt: Date
-  updatedAt: Date
-  reminder?: Date
-  type?: 'doc' | 'folder'
-  parentId?: string | null
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  categoryId?: string;
+  parentId?: string;
+  filePath?: string;
+  reminder?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-interface CreateNoteData {
-  title: string
-  content: string
-  categoryId: string | null
-  type?: 'doc' | 'folder'
-  parentId?: string | null
+const noteSaveQueue = new Map<string, Promise<void>>();
+
+let gitAutoSyncTimer: number | null = null;
+let gitAutoSyncInProgress = false;
+
+type PersistedGitSyncConfig = {
+  repoUrl: string
+  branch: string
+  autoSync: boolean
+}
+
+/**
+ * 从 localStorage 读取 Git 同步配置
+ */
+function loadGitSyncConfig(): PersistedGitSyncConfig | null {
+  try {
+    const raw = localStorage.getItem('git_sync_config')
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PersistedGitSyncConfig>
+    if (!parsed.repoUrl) return null
+    return {
+      repoUrl: parsed.repoUrl,
+      branch: parsed.branch || 'master',
+      autoSync: parsed.autoSync ?? true,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 主动触发一次 Git 自动同步（供 App 启动时调用）
+ */
+export async function triggerGitAutoSync(reason: string): Promise<void> {
+  await runGitAutoSyncNow(reason)
+}
+
+/**
+ * 执行一次 Git 自动同步（带互斥锁）
+ */
+async function runGitAutoSyncNow(reason: string): Promise<void> {
+  if (!tauriEnvironment.isTauri) return
+
+  const cfg = loadGitSyncConfig()
+  if (!cfg?.autoSync) return
+  if (!cfg.repoUrl) return
+  if (gitAutoSyncInProgress) return
+
+  gitAutoSyncInProgress = true
+  try {
+    const rootDir = await getDataRootDir()
+    const gitService = new GitSyncService(rootDir)
+
+    const repoRes = await gitService.isGitRepo()
+    if (!repoRes.success || !repoRes.isRepo) return
+
+    const remote = await gitService.getRemoteUrl('origin')
+    if (!remote) return
+
+    console.log(`触发 Git 自动同步: ${reason}`)
+    await gitService.pull(cfg.branch)
+    await gitService.commitAndPush('Auto-sync from NoteBook', cfg.branch)
+  } catch (error) {
+    console.error('Git 自动同步失败:', error)
+  } finally {
+    gitAutoSyncInProgress = false
+  }
+}
+
+/**
+ * 计划一次 Git 自动同步（保存后延迟去抖）
+ */
+function scheduleGitAutoSync(reason: string): void {
+  if (!tauriEnvironment.isTauri) return
+
+  const cfg = loadGitSyncConfig()
+  if (!cfg?.autoSync) return
+
+  if (gitAutoSyncTimer) {
+    window.clearTimeout(gitAutoSyncTimer)
+    gitAutoSyncTimer = null
+  }
+
+  gitAutoSyncTimer = window.setTimeout(() => {
+    gitAutoSyncTimer = null
+    runGitAutoSyncNow(reason).catch(() => undefined)
+  }, 30_000)
+}
+
+function enqueueNoteSave(note: Note): Promise<void> {
+  const previous = noteSaveQueue.get(note.id) ?? Promise.resolve();
+  const queueTask = previous.catch(() => undefined).then(() => markdownStorage.syncSaveNote(note));
+  const trackedTask = queueTask.finally(() => {
+    if (noteSaveQueue.get(note.id) === trackedTask) {
+      noteSaveQueue.delete(note.id);
+    }
+  });
+  noteSaveQueue.set(note.id, trackedTask);
+  return trackedTask;
+}
+
+// 定义 store 状态类型
+interface CreateNotePayload {
+  title?: string;
+  content?: string;
+  type?: string;
+  categoryId?: string | null;
+  parentId?: string | null;
 }
 
 interface NoteStore {
-  notes: Note[]
-  isLoading: boolean
-  error: string | null
-  reminderWorker: Worker | null
-  initNotes: (notes: Note[]) => void
-  loadNotes: () => Promise<void>
-  loadNoteContent: (id: string) => Promise<Note | null>
-  createNote: (data: CreateNoteData) => string
-  updateNote: (id: string, data: Partial<Note>) => Promise<boolean>
-  deleteNote: (id: string) => Promise<void>
-  setReminder: (id: string, date: Date) => Promise<void>
-  initReminderWorker: () => void
+  notes: Note[];
+  isLoading: boolean;
+  error: string | null;
+  reminderWorker: Worker | null;
+  
+  // 方法类型定义
+  initNotes: (notes: Note[]) => void;
+  loadNotes: () => Promise<void>;
+  loadNoteContent: (id: string) => Promise<Note | null>;
+  createNote: (payload: CreateNotePayload) => string;
+  updateNote: (id: string, updates: Partial<Note>) => Promise<boolean>;
+  deleteNote: (id: string) => Promise<void>;
+  deleteNotesByCategory: (categoryId: string) => Promise<void>;
+  setReminder: (id: string, date: Date) => Promise<void>;
+  initReminderWorker: () => void;
+  importMarkdownFile: (filePath: string) => Promise<Note | null>;
 }
 
+/**
+ * 关闭与指定 noteId 列表关联的标签页
+ */
+function closeTabsByNoteIds(noteIds: string[]): void {
+  const ids = new Set(noteIds)
+  const tabs = useTabs.getState().tabs
+  tabs.forEach(tab => {
+    if (ids.has(tab.noteId)) {
+      useTabs.getState().closeTab(tab.id)
+    }
+  })
+}
+
+// 创建一个新的 store 来存储环境状态
+export const useEnvironmentStore = create<{
+  isTauriApp: boolean;
+  setIsDesktop: (value: boolean) => void;
+}>((set) => ({
+  isTauriApp: tauriEnvironment.isTauri,
+  setIsDesktop: (value) => set({ isTauriApp: value }),
+}));
+
+// 在组件中初始化环境检测
+export const useInitEnvironment = () => {
+  const setIsDesktop = useEnvironmentStore((state) => state.setIsDesktop);
+
+  useEffect(() => {
+    const checkEnvironment = async () => {
+      const desktop = await tauriEnvironment.isTauri;
+      setIsDesktop(desktop);
+    };
+    checkEnvironment();
+  }, [setIsDesktop]);
+};
+
+// 在 noteStore 中使用环境状态
 export const useNotes = create<NoteStore>((set, get) => ({
   notes: [],
   isLoading: false,
   error: null,
   reminderWorker: null,
+
 
   initNotes: (notes: Note[]) => {
     set({ notes, isLoading: false, error: null })
@@ -53,8 +204,9 @@ export const useNotes = create<NoteStore>((set, get) => ({
       const notes = await storage.getAllNotes()
       
       // 获取当前内存中的笔记，用于保护内容
-      const currentNotes = get().notes;
-      const currentNotesMap = new Map(currentNotes.map(note => [note.id, note]));
+      const state = get();
+      const currentNotes = state.notes;
+      const currentNotesMap = new Map(currentNotes.map((note: Note) => [note.id, note]));
       
       // 处理笔记内容
       for (let i = 0; i < notes.length; i++) {
@@ -89,6 +241,8 @@ export const useNotes = create<NoteStore>((set, get) => ({
       }
       
       set({ notes, isLoading: false })
+      
+
     } catch (err) {
       console.error('加载笔记失败:', err);
       set({ error: (err as Error).message, isLoading: false })
@@ -99,8 +253,9 @@ export const useNotes = create<NoteStore>((set, get) => ({
   loadNoteContent: async (id: string) => {
     try {
       // 从当前状态中获取笔记的元数据
-      const { notes } = get();
-      const noteIndex = notes.findIndex(n => n.id === id);
+      const state = get();
+      const { notes } = state;
+      const noteIndex = notes.findIndex((n: Note) => n.id === id);
       
       if (noteIndex === -1) {
         console.error(`找不到ID为 ${id} 的笔记`);
@@ -148,18 +303,24 @@ export const useNotes = create<NoteStore>((set, get) => ({
     }
   },
 
-  createNote: (data: CreateNoteData) => {
-    console.log('【创建笔记】开始创建笔记，传入的数据:', data);
+  createNote: (payload: CreateNotePayload = {}) => {
+    const {
+      title = '新笔记',
+      content = '',
+      type = 'doc',
+      categoryId = null,
+      parentId = null
+    } = payload;
     
-    // 确保内容字段不为null或undefined
-    const safeContent = data.content || '';
+    console.log('【创建笔记】开始创建笔记，标题:', title, '内容长度:', content?.length || 0);
     
     const newNote: Note = {
       id: uuidv4(),
-      ...data,
-      content: safeContent, // 确保有内容字段，即使为空字符串
-      type: data.type || 'doc',
-      parentId: data.parentId || null,
+      title,
+      content,
+      type,
+      categoryId: categoryId || undefined,
+      parentId: parentId || undefined,
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -167,20 +328,22 @@ export const useNotes = create<NoteStore>((set, get) => ({
     console.log('【创建笔记】创建的新笔记:', newNote);
 
     // 更新状态
-    const notes = [...get().notes, newNote];
+    const state = get();
+    const notes = [...state.notes, newNote];
     set({ notes });
     
-    // 持久化保存笔记到存储
+    // 持久化保存（通过同步方法，内部串行：先DB再Markdown）
     try {
-      // 保存单个笔记
-      storage.saveOneNote(newNote).catch(error => {
-        console.error('保存新笔记失败:', error);
-      });
-      
-      // 或者保存所有笔记
-      // storage.saveNotes(notes).catch(error => {
-      //   console.error('保存笔记列表失败:', error);
-      // });
+      if (tauriEnvironment.isTauri) {
+        enqueueNoteSave(newNote).catch(error => {
+          console.error('保存新笔记失败:', error);
+        });
+      } else {
+        // 浏览器环境兜底
+        storage.saveOneNote(newNote).catch(error => {
+          console.error('保存新笔记到浏览器存储失败:', error);
+        });
+      }
     } catch (error) {
       console.error('尝试保存笔记时出错:', error);
     }
@@ -199,8 +362,9 @@ export const useNotes = create<NoteStore>((set, get) => ({
       }
       
       // 获取当前笔记
-      const { notes } = get();
-      const noteIndex = notes.findIndex(note => note.id === id);
+      const state = get();
+      const { notes } = state;
+      const noteIndex = notes.findIndex((note: Note) => note.id === id);
       
       if (noteIndex === -1) {
         console.error(`更新笔记失败: 找不到ID为 ${id} 的笔记`);
@@ -219,12 +383,17 @@ export const useNotes = create<NoteStore>((set, get) => ({
       updatedNotes[noteIndex] = updatedNote;
       set({ notes: updatedNotes });
       
-      // 持久化保存更新后的笔记
+      // 持久化保存更新（通过同步方法，内部串行：先DB再Markdown）
       try {
-        await storage.saveOneNote(updatedNote);
+        if (tauriEnvironment.isTauri) {
+          await enqueueNoteSave(updatedNote);
+        } else {
+          await storage.saveOneNote(updatedNote);
+        }
+
+        scheduleGitAutoSync('note_updated')
       } catch (saveError) {
-        console.error(`保存更新的笔记失败 (ID: ${id}):`, saveError);
-        // 即使保存失败，也不影响状态更新
+        console.error('保存笔记更新失败:', saveError);
       }
       
       return true;
@@ -237,7 +406,10 @@ export const useNotes = create<NoteStore>((set, get) => ({
 
   deleteNote: async (id: string) => {
     try {
-      const { reminderWorker } = get()
+      const state = get();
+      const { reminderWorker, notes } = state;
+      
+      // 清除提醒
       if (reminderWorker) {
         reminderWorker.postMessage({
           type: 'CLEAR_REMINDER',
@@ -245,29 +417,90 @@ export const useNotes = create<NoteStore>((set, get) => ({
         })
       }
 
-      const notes = get().notes.filter(note => note.id !== id)
-      set({ notes })
-      
-      // 持久化保存删除后的笔记列表
-      try {
-        await storage.saveNotes(notes);
-      } catch (saveError) {
-        console.error('保存删除后的笔记列表失败:', saveError);
+      // 获取要删除的笔记
+      const target = notes.find((note: Note) => note.id === id);
+      if (!target) return
+
+      // 计算需要删除的所有 noteId（folder 递归删除子项）
+      const idsToDelete: string[] = []
+      const collectIds = (noteId: string) => {
+        idsToDelete.push(noteId)
+        notes
+          .filter(n => n.parentId === noteId)
+          .forEach(child => collectIds(child.id))
+      }
+
+      if (target.type === 'folder') {
+        collectIds(target.id)
+      } else {
+        idsToDelete.push(target.id)
+      }
+
+      // 关闭相关标签页
+      closeTabsByNoteIds(idsToDelete)
+
+      // 从状态中移除（包含 folder 及其子项）
+      const updatedNotes = notes.filter((note: Note) => !idsToDelete.includes(note.id))
+      set({ notes: updatedNotes })
+
+      // 从存储中删除（会删除磁盘 md 文件 + noteIndex 记录）
+      for (const noteId of idsToDelete) {
+        try {
+          await storage.deleteNote(noteId)
+        } catch (error) {
+          console.error(`删除笔记失败 (ID: ${noteId}):`, error)
+        }
       }
     } catch (err) {
+      console.error(`删除笔记失败 (ID: ${id}):`, err);
       set({ error: (err as Error).message })
+    }
+  },
+
+  deleteNotesByCategory: async (categoryId: string) => {
+    const state = get()
+    const notes = state.notes
+
+    const targets = notes.filter(n => n.categoryId === categoryId)
+    const idsToDelete: string[] = []
+
+    const collectIds = (id: string) => {
+      idsToDelete.push(id)
+      notes
+        .filter(n => n.parentId === id)
+        .forEach(child => collectIds(child.id))
+    }
+
+    targets.forEach(n => {
+      if (n.type === 'folder') {
+        collectIds(n.id)
+      } else {
+        idsToDelete.push(n.id)
+      }
+    })
+
+    const uniqueIds = Array.from(new Set(idsToDelete))
+    closeTabsByNoteIds(uniqueIds)
+
+    set({ notes: notes.filter(n => !uniqueIds.includes(n.id)) })
+
+    for (const noteId of uniqueIds) {
+      try {
+        await storage.deleteNote(noteId)
+      } catch (error) {
+        console.error(`删除笔记失败 (ID: ${noteId}):`, error)
+      }
     }
   },
 
   setReminder: async (id: string, date: Date) => {
     try {
-      // 获取当前笔记
-      const { notes } = get();
-      const noteIndex = notes.findIndex(note => note.id === id);
+      const state = get();
+      const { notes, reminderWorker } = state;
+      const noteIndex = notes.findIndex((note: Note) => note.id === id)
       
       if (noteIndex === -1) {
-        console.error(`设置提醒失败: 找不到ID为 ${id} 的笔记`);
-        return;
+        throw new Error(`找不到ID为 ${id} 的笔记`)
       }
       
       // 更新笔记对象
@@ -275,46 +508,110 @@ export const useNotes = create<NoteStore>((set, get) => ({
         ...notes[noteIndex], 
         reminder: date, 
         updatedAt: new Date() 
-      };
+      }
       
       // 更新状态
-      const updatedNotes = [...notes];
-      updatedNotes[noteIndex] = updatedNote;
-      set({ notes: updatedNotes });
+      const updatedNotes = [...notes]
+      updatedNotes[noteIndex] = updatedNote
+      set({ notes: updatedNotes })
       
       // 持久化保存更新后的笔记
-      try {
-        await storage.saveOneNote(updatedNote);
-      } catch (saveError) {
-        console.error(`保存设置提醒的笔记失败 (ID: ${id}):`, saveError);
+      await storage.saveOneNote(updatedNote)
+      
+      // 发送提醒到Worker
+      if (reminderWorker) {
+        reminderWorker.postMessage({
+          type: 'SET_REMINDER',
+          noteId: id,
+          noteTitle: updatedNote.title,
+          reminderTime: date.getTime()
+        })
       }
     } catch (err) {
+      console.error(`设置提醒失败 (ID: ${id}):`, err)
       set({ error: (err as Error).message })
     }
   },
 
   initReminderWorker: () => {
+    if (typeof window === 'undefined') return
+    
     try {
-      const worker = new Worker(
-        new URL('../workers/reminder.ts', import.meta.url),
-        { type: 'module' }
-      )
-      set({ reminderWorker: worker })
-
-      // 初始化现有的提醒
-      const { notes } = get()
-      notes.forEach(note => {
-        if (note.reminder && note.reminder.getTime() > Date.now()) {
-          worker.postMessage({
-            type: 'SET_REMINDER',
-            noteId: note.id,
-            title: note.title,
-            time: note.reminder.getTime()
-          })
-        }
+      // 创建提醒Worker
+      const worker = new Worker(new URL('../workers/reminder.ts', import.meta.url), {
+        type: 'module'
       })
+      
+      // 设置Worker消息处理
+      worker.onmessage = (event) => {
+        const { type, noteId, noteTitle } = event.data
+        
+        if (type === 'REMINDER') {
+          // 显示提醒通知
+          if (Notification.permission === 'granted') {
+            new Notification('笔记提醒', {
+              body: noteTitle || '你有一个笔记提醒',
+              icon: '/favicon.ico'
+            })
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                new Notification('笔记提醒', {
+                  body: noteTitle || '你有一个笔记提醒',
+                  icon: '/favicon.ico'
+                })
+              }
+            })
+          }
+          
+          console.log(`提醒触发: ${noteId} - ${noteTitle}`)
+        }
+      }
+      
+      // 初始化Worker
+      const state = get();
+      const { notes } = state;
+      const reminders = notes
+        .filter((note: Note) => note.reminder)
+        .map((note: Note) => ({
+          noteId: note.id,
+          noteTitle: note.title,
+          reminderTime: note.reminder!.getTime()
+        }))
+      
+          worker.postMessage({
+        type: 'INIT_REMINDERS',
+        reminders
+      })
+      
+      // 保存Worker实例
+      set({ reminderWorker: worker })
+      
+      console.log('提醒Worker初始化完成')
     } catch (err) {
+      console.error('初始化提醒Worker失败:', err)
       set({ error: (err as Error).message })
+    }
+  },
+  
+
+  
+  // 导入Markdown文件
+  importMarkdownFile: async (filePath: string) => {
+    try {
+      const note = await markdownStorage.importMarkdownAsNote(filePath);
+      
+      if (note) {
+        // 更新状态
+        const state = get();
+        const notes = [...state.notes, note];
+        set({ notes });
+      }
+      
+      return note;
+    } catch (error) {
+      console.error('导入Markdown文件失败:', error);
+      return null;
     }
   }
 })) 

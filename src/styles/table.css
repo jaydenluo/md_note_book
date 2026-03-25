@@ -1,4 +1,4 @@
-
+ 
 
 .ProseMirror td p {
   margin-bottom: 0px; 
@@ -38,6 +38,7 @@
 }
 
 /* 表格单元格对齐方式 */
+/* 通过 data-text-align 属性选择器 */
 .ProseMirror table td[data-text-align="left"],
 .ProseMirror table th[data-text-align="left"] {
   text-align: left;
@@ -52,6 +53,8 @@
 .ProseMirror table th[data-text-align="right"] {
   text-align: right;
 }
+
+/* 通过 style 属性直接设置的对齐方式也会生效 */
 
 /* 表格基础样式 */
 .ProseMirror table {

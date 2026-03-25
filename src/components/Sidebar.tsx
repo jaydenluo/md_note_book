@@ -3,85 +3,13 @@ import type { FC } from 'react'
 import { useCategories } from '@stores/categoryStore'
 import { useNotes } from '@stores/noteStore'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useTheme } from '@utils/theme'
-import { createContextMenu } from '@utils/contextMenu'
 import { useAlertDialog } from '@/components/ui/alert-dialog'
 import { FolderIcon, FolderPlusIcon } from '@/components/icons'
-import { SettingsDialog } from '@/components/SettingsDialog'
-
-// 自定义图标组件
-const SunIcon = ({ size = 20 }: { size?: number }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="12" cy="12" r="4" />
-    <path d="M12 2v2" />
-    <path d="M12 20v2" />
-    <path d="m4.93 4.93 1.41 1.41" />
-    <path d="m17.66 17.66 1.41 1.41" />
-    <path d="M2 12h2" />
-    <path d="M20 12h2" />
-    <path d="m6.34 17.66-1.41 1.41" />
-    <path d="m19.07 4.93-1.41 1.41" />
-  </svg>
-);
-
-const MoonIcon = ({ size = 20 }: { size?: number }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-  </svg>
-);
-
-const CloudIcon = ({ size = 20 }: { size?: number }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-  </svg>
-);
-
-const SettingsIcon = ({ size = 20 }: { size?: number }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
+import { Settings, Sun, Moon, Cloud } from 'lucide-react'
+import { SettingsDialog } from './SettingsDialog'
+import { CloudSyncDialog } from './CloudSyncDialog'
+import { GitSyncDialog } from './GitSyncDialog'
+import { useTheme } from '@utils/theme'
 
 interface SidebarProps {
   selectedCategoryId: string | null
@@ -96,7 +24,10 @@ export const Sidebar: FC<SidebarProps> = ({
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [cloudSyncOpen, setCloudSyncOpen] = useState(false)
+  const [gitSyncOpen, setGitSyncOpen] = useState(false)
+  const { isDark, toggleTheme } = useTheme()
   const newCategoryInputRef = useRef<HTMLInputElement>(null)
   const editCategoryInputRef = useRef<HTMLInputElement>(null)
   
@@ -105,7 +36,6 @@ export const Sidebar: FC<SidebarProps> = ({
   const deleteCategory = useCategories(state => state.deleteCategory)
   const updateCategory = useCategories(state => state.updateCategory)
   const notes = useNotes(state => state.notes)
-  const { isDark, toggleTheme } = useTheme()
   const { showConfirm } = useAlertDialog()
 
   // 自动聚焦新分类输入框
@@ -179,7 +109,7 @@ export const Sidebar: FC<SidebarProps> = ({
       description: '确定要删除这个分类吗？相关笔记也会被删除。'
     });
     if (confirmed) {
-      deleteCategory(id)
+      await deleteCategory(id)
     }
   }
 
@@ -194,50 +124,39 @@ export const Sidebar: FC<SidebarProps> = ({
     return notes.filter(note => note.categoryId === categoryId).length
   }
   
-  // 打开设置对话框
-  const onOpenSettings = () => {
-    setIsSettingsOpen(true)
-  }
-
-  // 处理分类右键菜单
-  const handleCategoryContextMenu = (e: React.MouseEvent, categoryId: string, categoryName: string) => {
-    e.preventDefault();
-    
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    createContextMenu(x, y, [
-      {
-        label: '新建笔记',
-        onClick: () => {
-          // 选中分类并创建笔记
-          onSelectCategory(categoryId);
-          // 这里需要调用createNote，但我们没有直接访问权限
-          console.log('在分类中创建笔记:', categoryId);
-        }
-      },
-      {
-        label: '重命名',
-        onClick: () => {
-          // 开始编辑分类名称
-          setEditingCategoryId(categoryId);
-          setEditingName(categoryName);
-        }
-      },
-      {
-        label: '删除',
-        onClick: async () => {
-          const confirmed = await showConfirm({
-            title: '确认删除',
-            description: `确定要删除分类 "${categoryName}" 吗？`
-          });
-          if (confirmed) {
-            deleteCategory(categoryId);
-          }
-        }
+  /* handleCategoryContextMenu 已经不再使用，一级菜单右键功能已取消 */
+  
+  // 处理同步
+  const handleSync = async () => {
+    try {
+      // 获取当前最新的数据
+      const currentCategories = useCategories.getState().categories;
+      const currentNotes = useNotes.getState().notes;
+      
+      const service = new CloudSyncService();
+      const isConnected = await service.testConnection();
+      
+      if (!isConnected) {
+        console.error('云同步失败: 无法连接到服务器');
+        return;
       }
-    ]);
-  };
+
+      console.log('正在执行云同步...');
+      const result = await service.sync({
+        categories: currentCategories,
+        notes: currentNotes
+      });
+
+      // 如果远端数据更新，同步到本地 store
+      if (result.notes.length > 0 || result.categories.length > 0) {
+        useCategories.getState().setCategories(result.categories);
+        useNotes.getState().setNotes(result.notes);
+        console.log('云同步完成：已更新本地数据');
+      }
+    } catch (error) {
+      console.error('同步失败:', error);
+    }
+  }
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
@@ -300,7 +219,7 @@ export const Sidebar: FC<SidebarProps> = ({
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className={`w-full rounded-md ${
+                  className={`w-full group rounded-md ${
                     selectedCategoryId === category.id
                       ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
                       : 'hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -325,29 +244,28 @@ export const Sidebar: FC<SidebarProps> = ({
                       className="flex items-center justify-between px-3 py-2 cursor-pointer"
                       onClick={() => handleCategoryClick(category.id)}
                       onDoubleClick={(e) => handleStartEditingCategory(category.id, category.name, e)}
-                      onContextMenu={(e) => handleCategoryContextMenu(e, category.id, category.name)}
                     >
                       <div className="flex items-center min-w-0 flex-1">
                         <FolderIcon className="mr-2 flex-shrink-0" />
                         <span className="truncate max-w-[150px] inline-block" title={category.name}>{category.name}</span>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div className="flex items-center space-x-1 min-w-[24px] justify-end">
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 group-hover:hidden">
                           {getCategoryNoteCount(category.id)}
                         </span>
-                        {selectedCategoryId === category.id && (
+                        <div className="hidden group-hover:flex items-center">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteCategory(category.id, e);
+                            onClick={async (e) => {
+                              await handleDeleteCategory(category.id, e)
                             }}
-                            className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-500 dark:hover:text-red-400"
+                            className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                            title="删除分类"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -365,43 +283,58 @@ export const Sidebar: FC<SidebarProps> = ({
         </div>
       </div>
       
-      <div className="p-3">
-        <div className="flex items-center justify-between">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleTheme}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-            title={isDark ? '切换到亮色模式' : '切换到暗色模式'}
-          >
-            {isDark ? <SunIcon size={20} /> : <MoonIcon size={20} />}
-          </motion.button>
-          
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-            title="云同步"
-          >
-            <CloudIcon size={20} />
-          </motion.button>
-          
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-            title="设置"
-            onClick={onOpenSettings}
-          >
-            <SettingsIcon size={20} />
-          </motion.button>
-        </div>
+      {/* 底部功能按钮 */}
+      <div className="p-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-around">
+        {/* Git 同步按钮 */}
+        <button
+          onClick={() => setGitSyncOpen(true)}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+          title="Git 同步"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-github"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.28 1.15-.28 2.35 0 3.5-.73 1.02-1.08 2.25-1 3.5 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+        </button>
+
+        {/* 云同步按钮 */}
+        <button
+          onClick={() => setCloudSyncOpen(true)}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+          title="WebDAV 同步"
+        >
+          <Cloud className="w-5 h-5" />
+        </button>
+
+        {/* 主题切换按钮 */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+          title={isDark ? "切换到浅色模式" : "切换到深色模式"}
+        >
+          {isDark ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
+        </button>
+
+        {/* 设置按钮 */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+          title="设置"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
       </div>
-      
-      {/* 设置对话框 */}
-      <SettingsDialog 
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <CloudSyncDialog 
+        isOpen={cloudSyncOpen} 
+        onClose={() => setCloudSyncOpen(false)} 
+        onSync={handleSync}
+      />
+      <GitSyncDialog
+        isOpen={gitSyncOpen}
+        onClose={() => setGitSyncOpen(false)}
       />
     </div>
   )

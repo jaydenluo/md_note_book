@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNotes } from "../stores/noteStore";
-import { useCategories } from "../stores/categoryStore";
+import { useConfig } from "../stores/configStore";
+import { useTabs } from "../stores/tabsStore";
 import { debounce } from "lodash-es";
-import TagSelector from "./TagSelector";
+import { useAutoSave } from "../hooks/useAutoSave";
 import TiptapEditor from "./TiptapEditor";
 import type { Note } from "../stores/noteStore";
 
@@ -34,7 +35,6 @@ export default function Editor({ noteId }: EditorProps) {
   // const editorInstanceId = React.useRef(`editor-instance-${Math.random().toString(36).substring(2, 9)}`);
 
   // 状态定义
-  const [isTagSelectorOpen, setIsTagSelectorOpen] = useState(false);
   const [localTitle, setLocalTitle] = useState("");
   const [localContent, setLocalContent] = useState("");
   const [showOutline, setShowOutline] = useState(true);
@@ -59,12 +59,11 @@ export default function Editor({ noteId }: EditorProps) {
   const outlinePanelRef = useRef<HTMLDivElement>(null);
 
   // 获取笔记数据
-  const note = useNotes((state) => (noteId ? state.notes.find((n) => n.id === noteId) : null));
-  const updateNote = useNotes((state) => state.updateNote);
-  const categories = useCategories((state) => state.categories);
-
-  // 获取当前笔记的分类
-  const category = note ? categories.find((c) => c.id === note.categoryId) : null;
+  const note = useNotes((state: any) => (noteId ? state.notes.find((n: any) => n.id === noteId) : null));
+  const updateNote = useNotes((state: any) => state.updateNote);
+  
+  // 获取配置
+  const { config } = useConfig();
 
   // 当笔记变化时更新引用
   useEffect(() => {
@@ -180,6 +179,16 @@ export default function Editor({ noteId }: EditorProps) {
     };
   }, [isDragging, outlineWidth]);
 
+  // 自动保存功能 - 当标题或内容发生变化时自动保存
+  useAutoSave({
+    data: { title: localTitle, content: localContent, noteId },
+    onSave: async () => {
+      await saveNote(false); // 自动保存时不显示状态
+    },
+    interval: config.autoSaveInterval * 1000, // 转换为毫秒
+    debounce: 2000, // 2秒防抖，避免频繁保存
+  });
+
   // 使用函数引用避免在回调中创建新函数
   const handleMouseMove = useRef((e: MouseEvent) => {
     if (!isDragging) return;
@@ -276,13 +285,15 @@ export default function Editor({ noteId }: EditorProps) {
     setIsInCodeBlock(state.isInCodeBlock);
   };
 
-  // 手动保存笔记
-  const handleSaveNote = async () => {
+  // 通用保存函数 - 用于手动和自动保存
+  const saveNote = async (showStatus = true) => {
     if (!note || !noteId) return;
 
     try {
-      setSaveStatus("saving");
-      setIsSaving(true);
+      if (showStatus) {
+        setSaveStatus("saving");
+        setIsSaving(true);
+      }
 
       // 构建要更新的数据
       const updateData: Partial<Note> = {};
@@ -290,6 +301,11 @@ export default function Editor({ noteId }: EditorProps) {
       // 如果标题发生变化
       if (localTitle !== note.title) {
         updateData.title = localTitle;
+        // 同步更新标签页标题
+        const activeTab = useTabs.getState().tabs.find(t => t.noteId === noteId);
+        if (activeTab) {
+          useTabs.getState().updateTabTitle(activeTab.id, localTitle);
+        }
       }
 
       // 如果内容发生变化
@@ -299,32 +315,46 @@ export default function Editor({ noteId }: EditorProps) {
 
       // 只有当有数据需要更新时才调用更新
       if (Object.keys(updateData).length > 0) {
-        console.log(`手动保存笔记 (ID: ${noteId})`, updateData);
+        console.log(`${showStatus ? '手动' : '自动'}保存笔记 (ID: ${noteId})`, updateData);
         const success = await updateNote(noteId, updateData);
 
-        if (success) {
+        if (success && showStatus) {
           setSaveStatus("saved");
-
           // 2秒后重置状态
           setTimeout(() => {
             setSaveStatus("idle");
           }, 2000);
-        } else {
+        } else if (!success && showStatus) {
           setSaveStatus("error");
         }
+        
+        return success;
       } else {
-        // 没有变化，直接显示已保存
-        setSaveStatus("saved");
-        setTimeout(() => {
-          setSaveStatus("idle");
-        }, 2000);
+        // 没有变化，手动保存时显示已保存状态
+        if (showStatus) {
+          setSaveStatus("saved");
+          setTimeout(() => {
+            setSaveStatus("idle");
+          }, 2000);
+        }
+        return true;
       }
     } catch (error) {
       console.error("保存笔记失败:", error);
-      setSaveStatus("error");
+      if (showStatus) {
+        setSaveStatus("error");
+      }
+      return false;
     } finally {
-      setIsSaving(false);
+      if (showStatus) {
+        setIsSaving(false);
+      }
     }
+  };
+
+  // 手动保存笔记（显示保存状态）
+  const handleSaveNote = async () => {
+    await saveNote(true);
   };
 
   // 计算文本统计信息
@@ -581,38 +611,13 @@ export default function Editor({ noteId }: EditorProps) {
   // 如果没有笔记ID，显示提示信息
   if (!noteId) return <div className="flex-1 flex items-center justify-center text-gray-500">未选择笔记</div>;
 
-  // 计算编辑器和大纲的宽度比例
-  const outlineWidthPercent = showOutline ? `${outlineWidth}px` : "0px";
-  const editorWidthPercent = showOutline ? `calc(100% - ${outlineWidth}px)` : "100%";
-
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 overflow-hidden">
       {/* 标题区域 */}
-      <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex-1 flex items-center">
-          <div className="flex-1">
-            <input ref={titleRef} type="text" value={localTitle} onChange={handleTitleChange} className="w-full text-xl font-semibold bg-transparent border-none outline-none" placeholder="无标题" />
-            <div className="flex items-center text-xs mt-1">
-              <span className={`rounded-full w-3 h-3 mr-1 ${category?.color || "bg-gray-400"}`}></span>
-              <span className="text-gray-500 dark:text-gray-400">{category?.name || "未分类"}</span>
-
-              {/* 笔记统计信息 */}
-              <span className="text-gray-400 dark:text-gray-500 ml-4">
-                {stats.chars} 字符 | {stats.words} 词 | {stats.lines} 行
-              </span>
-
-              {/* 标签按钮 */}
-              <button onClick={() => setIsTagSelectorOpen(!isTagSelectorOpen)} className="ml-3 px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition">
-                标签
-              </button>
-            </div>
-          </div>
+      <div className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center">
-            {/* 标签选择器 */}
-            {isTagSelectorOpen && note && <TagSelector noteId={note.id} onClose={() => setIsTagSelectorOpen(false)} />}
-
             {/* 保存按钮 */}
-            <button onClick={handleSaveNote} disabled={isSaving} className={`ml-3 p-1.5 rounded flex items-center ${saveStatus === "saving" ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-300" : saveStatus === "saved" ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300" : saveStatus === "error" ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300" : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"}`} title="保存笔记">
+            <button onClick={handleSaveNote} disabled={isSaving} className={`p-1 rounded flex items-center ${saveStatus === "saving" ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-300" : saveStatus === "saved" ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300" : saveStatus === "error" ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300" : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"}`} title="保存笔记">
               {saveStatus === "saving" ? (
                 <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -632,21 +637,24 @@ export default function Editor({ noteId }: EditorProps) {
                 </svg>
               )}
             </button>
-
+          </div>
+          <div className="flex-1 mx-3">
+            <input ref={titleRef} type="text" value={localTitle} onChange={handleTitleChange} className="w-full text-lg font-semibold bg-transparent border-none outline-none" placeholder="无标题" />
+          </div>
+          <div className="flex items-center">
             {/* 大纲开关按钮 */}
-            <button onClick={() => setShowOutline(!showOutline)} className="ml-3 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title={showOutline ? "隐藏大纲" : "显示大纲"}>
+            <button onClick={() => setShowOutline(!showOutline)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title={showOutline ? "隐藏大纲" : "显示大纲"}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" />
               </svg>
             </button>
           </div>
-        </div>
       </div>
 
       {/* 主要编辑区域 */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden w-full">
         {/* 编辑器 */}
-        <div className="flex flex-col h-full overflow-y-auto transition-all duration-300" style={{ width: editorWidthPercent }}>
+        <div className="flex-1 flex flex-col h-full overflow-y-auto min-w-0">
           <TiptapEditor 
           content={localContent} 
           onChange={handleContentChange} 
@@ -656,7 +664,7 @@ export default function Editor({ noteId }: EditorProps) {
 
         {/* 大纲面板 */}
         {showOutline && (
-          <div ref={outlinePanelRef} className="relative h-full bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 transition-all duration-300 shadow-sm" style={{ width: outlineWidthPercent }}>
+          <div ref={outlinePanelRef} className="relative h-full bg-gray-50 dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0" style={{ width: `${outlineWidth}px` }}>
             {/* 拖拽把手 - 使用项目已有的resize-handle样式 */}
             <div className={`resize-handle left-0 -ml-1.5 ${isDragging ? "bg-blue-500/50" : ""}`} onMouseDown={handleMouseDown} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} title="拖拽调整宽度">
               <div className="resize-handle-indicator"></div>

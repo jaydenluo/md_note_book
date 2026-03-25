@@ -5,29 +5,64 @@
   @apply relative flex flex-col h-full w-full;
 }
 
-/* Tiptap编辑器容器 */
+/* Tiptap编辑器容器 - 设置最小宽度 */
 .tiptap-editor-container {
-  @apply relative h-full flex flex-col;
+  @apply relative h-full flex flex-col overflow-hidden;
+  min-width: 0; /* 允许在 flex 布局下自适应缩小 */
 }
 
 /* 工具栏样式 */
 .editor-toolbar {
-  @apply flex items-center gap-1 p-1 border-b bg-background;
+  @apply flex items-center gap-1 p-1 border-b bg-background overflow-x-auto;
   min-height: 40px;
+  flex-shrink: 0;
 }
 
-/* 编辑器内容区域 */
+/* 编辑器内容区域（普通模式） - 固定宽度1024px */
 .editor-content {
   @apply relative flex-1 overflow-auto px-4;
-  max-width: 800px;
+  /* 普通模式下固定宽度为1024px，提供更舒适的编辑区域 */
+  width: 1024px;
+  max-width: 1024px;
   margin: 0 auto;
-  transition: max-width 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 /* 编辑器内容区域 - 宽屏模式 */
 .editor-content.wide {
-  max-width: 100%;
+  /* 
+   * 宽屏模式下，宽度计算逻辑：
+   * 1. 恢复 width: 100% 以填满 Grid 分配的父容器宽度
+   * 2. 移除 flex 属性，避免在 Grid 容器中产生非预期行为
+   * 3. 确保没有任何内缩 margin，完全填满 1fr 空间
+   */
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
   padding: 0 2rem;
+  display: block;
+  box-sizing: border-box;
+}
+
+/* 彻底消除编辑器容器可能产生的溢出 */
+.editor-content.wide {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 针对大屏下可能出现的 10px 缝隙，强制主容器填满窗口 */
+.grid.h-full.w-full {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 确保大纲面板和编辑器之间没有多余缝隙 */
+.editor-content.wide + div,
+div:has(> .editor-content.wide) + div {
+  margin-left: 0;
+  margin-left: 0 !important;
 }
 
 /* 自定义滚动条 */

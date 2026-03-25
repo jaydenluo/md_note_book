@@ -1,11 +1,84 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "identifier": "default-capability",
+  "description": "Capability for the main window",
+  "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:app:default",
+    "core:event:default",
+    "core:image:default",
+    "core:menu:default",
+    "core:path:default",
+    "core:resources:default",
+    "core:window:default",
+    "core:window:allow-create",
+    "core:window:allow-close",
+    "core:window:allow-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "dialog:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "git",
+          "cmd": "git",
+          "args": true,
+          "sidecar": false
+        }
+      ]
+    },
+    "fs:default",
+    "fs:allow-create",
+    "fs:allow-read",
+    "fs:allow-write",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-exists",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:read-files",
+    "fs:write-files",
+    "fs:read-dirs",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "**/*"
+        },
+        {
+          "path": "$APPDATA/**/*"
+        },
+        {
+          "path": "$APPLOCALDATA/**/*"
+        },
+        {
+          "path": "$RESOURCE/**/*"
+        },
+        {
+          "path": "$TEMP/**/*"
+        },
+        {
+          "path": "$HOME/**/*"
+        },
+        {
+          "path": "$DOWNLOAD/**/*"
+        },
+        {
+          "path": "$DOCUMENT/**/*"
+        },
+        {
+          "path": "$PICTURE/**/*"
+        },
+        {
+          "path": "$VIDEO/**/*"
+        },
+        {
+          "path": "$AUDIO/**/*"
+        }
+      ]
+    }
   ]
 }

@@ -1,57 +1,66 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use rusqlite::{Connection, Result as SqliteResult};
-use std::sync::{Arc, Mutex};
-use std::fs;
-use std::path::Path;
-use tauri::Manager;
+mod pdf_export;
+mod search;
 
-// 应用状态，包含数据库连接
-pub struct AppState {
-    conn: Arc<Mutex<Connection>>,
+use search::{SearchResult, TantivyManager};
+use tauri::{AppHandle, Manager, State};
+
+#[tauri::command]
+async fn init_search_index(handle: AppHandle, manager: State<'_, TantivyManager>) -> Result<(), String> {
+    let app_dir = handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let index_path = app_dir.join("search_index");
+    manager.init_index(index_path)
 }
 
-// 初始化数据库，创建必要的表
-fn init_database(conn: &Connection) -> SqliteResult<()> {
-    // 创建笔记表
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS notes (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )",
-        [],
-    )?;
-    
-    Ok(())
+#[tauri::command]
+async fn search_notes(query: String, limit: usize, manager: State<'_, TantivyManager>) -> Result<Vec<SearchResult>, String> {
+    manager.search(&query, limit)
+}
+
+#[tauri::command]
+async fn update_note_index(id: String, title: String, content: String, manager: State<'_, TantivyManager>) -> Result<(), String> {
+    manager.update_index(&id, &title, &content)
+}
+
+#[tauri::command]
+async fn delete_note_index(id: String, manager: State<'_, TantivyManager>) -> Result<(), String> {
+    manager.delete_index(&id)
+}
+
+#[tauri::command]
+async fn export_pdf_from_html(html: String, output_path: String) -> Result<(), String> {
+    pdf_export::export_pdf_from_html(&html, &output_path)
 }
 
 fn main() {
-    // 确保数据目录存在
-    let app_data_dir = tauri::api::path::app_data_dir(&tauri::Config::default())
-        .expect("无法获取应用数据目录");
-    let db_dir = app_data_dir.join("db");
-    fs::create_dir_all(&db_dir).expect("无法创建数据库目录");
-    
-    // 打开或创建SQLite数据库
-    let db_path = db_dir.join("notes.db");
-    let conn = Connection::open(&db_path).expect("无法打开数据库");
-    
-    // 初始化数据库表
-    init_database(&conn).expect("初始化数据库失败");
-    
-    // 创建应用状态
-    let app_state = AppState {
-        conn: Arc::new(Mutex::new(conn)),
-    };
-    
-    // 构建Tauri应用
     tauri::Builder::default()
-        .manage(app_state)
-        .invoke_handler(tauri::generate_handler![])
+        .manage(TantivyManager::new())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![
+            init_search_index,
+            search_notes,
+            update_note_index,
+            delete_note_index,
+            export_pdf_from_html
+        ])
+        .setup(|app| {
+            #[cfg(debug_assertions)]
+            {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+
+            log::info!("Tauri application initialized successfully");
+            Ok(())
+        })
         .run(tauri::generate_context!())
-        .expect("运行应用失败");
+        .expect("error while running tauri application");
 }

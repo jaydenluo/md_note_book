@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "note_book",
+  "productName": "MuseNote",
   "version": "0.1.0",
-  "identifier": "com.notebook.app",
+  "identifier": "com.musenote.cn",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -10,11 +10,12 @@
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
-        "title": "note_book",
-        "width": 800,
-        "height": 600,
+        "title": "MuseNote",
+        "width": 1200,
+        "height": 800,
         "resizable": true,
         "fullscreen": false
       }
@@ -25,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi"],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -20,18 +20,18 @@ interface AlertDialogProps {
 export function AlertDialog({ open, onOpenChange, title, description, cancelText = "取消", confirmText = "确定", onConfirm, onCancel, type = "alert", variant = "default" }: AlertDialogProps) {
   // 处理确认按钮点击
   const handleConfirm = () => {
-    onOpenChange(false);
     if (onConfirm) {
       onConfirm();
     }
+    onOpenChange(false);
   };
 
   // 处理取消按钮点击
   const handleCancel = () => {
-    onOpenChange(false);
     if (onCancel) {
       onCancel();
     }
+    onOpenChange(false);
   };
 
   // 判断是否为删除操作
@@ -39,20 +39,20 @@ export function AlertDialog({ open, onOpenChange, title, description, cancelText
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`sm:max-w-[425px] ${isDestructive ? 'border-red-200 dark:border-red-800' : ''}`} style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)' }}>
+      <DialogContent className={`sm:max-w-[425px] ${isDestructive ? 'border-red-100 dark:border-red-900/40' : ''}`} style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)' }}>
         <DialogHeader className="text-center">
           {isDestructive && (
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
-              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-900/10">
+              <svg className="h-6 w-6 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
           )}
-          <DialogTitle className={`text-lg font-semibold ${isDestructive ? 'text-red-900 dark:text-red-100' : ''}`}>
+          <DialogTitle className={`text-lg font-semibold ${isDestructive ? 'text-gray-900 dark:text-gray-100' : ''}`}>
             {title}
           </DialogTitle>
           {description && (
-            <DialogDescription className={`text-sm ${isDestructive ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-400'}`}>
+            <DialogDescription className={`text-sm ${isDestructive ? 'text-gray-600 dark:text-gray-300' : 'text-gray-600 dark:text-gray-400'}`}>
               {description}
             </DialogDescription>
           )}
@@ -69,7 +69,7 @@ export function AlertDialog({ open, onOpenChange, title, description, cancelText
           )}
           <Button 
             onClick={handleConfirm}
-            className={`min-w-[80px] ${isDestructive ? 'bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' : ''}`}
+            className={`min-w-[80px] ${isDestructive ? 'bg-red-500 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600' : ''}`}
           >
             {confirmText}
           </Button>
@@ -113,7 +113,7 @@ export function AlertDialogProvider({ children }: { children: React.ReactNode })
   });
 
   // 创建一个Promise引用，用于resolve confirm结果
-  const confirmResolveRef = React.useRef<(value: boolean) => void>();
+  const confirmResolveRef = React.useRef<((value: boolean) => void) | undefined>(undefined);
 
   // 显示alert对话框
   const showAlert = React.useCallback((options: Omit<AlertDialogState, "open" | "type">) => {
@@ -135,10 +135,12 @@ export function AlertDialogProvider({ children }: { children: React.ReactNode })
         onConfirm: () => {
           if (options.onConfirm) options.onConfirm();
           resolve(true);
+          confirmResolveRef.current = undefined;
         },
         onCancel: () => {
           if (options.onCancel) options.onCancel();
           resolve(false);
+          confirmResolveRef.current = undefined;
         },
       });
     });
@@ -151,6 +153,7 @@ export function AlertDialogProvider({ children }: { children: React.ReactNode })
       // 如果是confirm对话框，且用户点击了关闭按钮，则视为取消
       if (state.type === "confirm" && confirmResolveRef.current) {
         confirmResolveRef.current(false);
+        confirmResolveRef.current = undefined;
       }
     }
   };

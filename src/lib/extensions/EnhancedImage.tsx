@@ -63,6 +63,22 @@ export const EnhancedImage = Node.create<EnhancedImageOptions>({
       caption: {
         default: '',
       },
+      // 图片文件信息属性
+      'data-image-id': {
+        default: null,
+      },
+      'data-image-path': {
+        default: null,
+      },
+      'data-image-size': {
+        default: null,
+      },
+      'data-image-width': {
+        default: null,
+      },
+      'data-image-height': {
+        default: null,
+      },
     };
   },
 
@@ -89,6 +105,12 @@ export const EnhancedImage = Node.create<EnhancedImageOptions>({
             border: parent?.dataset.border !== 'false',
             shadow: parent?.dataset.shadow !== 'false',
             caption: parent?.dataset.caption || '',
+            // 图片文件信息
+            'data-image-id': element.getAttribute('data-image-id'),
+            'data-image-path': element.getAttribute('data-image-path'),
+            'data-image-size': element.getAttribute('data-image-size'),
+            'data-image-width': element.getAttribute('data-image-width'),
+            'data-image-height': element.getAttribute('data-image-height'),
           };
         },
       },
@@ -114,6 +136,12 @@ export const EnhancedImage = Node.create<EnhancedImageOptions>({
             border: element.dataset.border !== 'false',
             shadow: element.dataset.shadow !== 'false',
             caption: caption?.textContent || '',
+            // 图片文件信息
+            'data-image-id': img.getAttribute('data-image-id'),
+            'data-image-path': img.getAttribute('data-image-path'),
+            'data-image-size': img.getAttribute('data-image-size'),
+            'data-image-width': img.getAttribute('data-image-width'),
+            'data-image-height': img.getAttribute('data-image-height'),
           };
         },
       },
@@ -122,7 +150,7 @@ export const EnhancedImage = Node.create<EnhancedImageOptions>({
 
   // 渲染HTML
   renderHTML({ HTMLAttributes }) {
-    const { alignment, size, border, shadow, caption, ...attrs } = HTMLAttributes;
+    const { alignment, size, border, shadow, caption, 'data-image-id': imageId, 'data-image-path': imagePath, 'data-image-size': imageSize, 'data-image-width': imageWidth, 'data-image-height': imageHeight, ...attrs } = HTMLAttributes;
     
     // 确保src存在
     if (!attrs.src) {
@@ -148,6 +176,19 @@ export const EnhancedImage = Node.create<EnhancedImageOptions>({
       shadow !== false ? 'has-shadow' : '',
     ].filter(Boolean).join(' ');
     
+    // 构建图片属性，包含文件信息
+    const imgAttrs = {
+      ...attrs,
+      class: imgClass,
+    };
+    
+    // 添加图片文件信息属性（如果存在）
+    if (imageId) imgAttrs['data-image-id'] = imageId;
+    if (imagePath) imgAttrs['data-image-path'] = imagePath;
+    if (imageSize) imgAttrs['data-image-size'] = imageSize;
+    if (imageWidth) imgAttrs['data-image-width'] = imageWidth;
+    if (imageHeight) imgAttrs['data-image-height'] = imageHeight;
+    
     // 返回HTML结构，确保没有null值
     const captionElement = caption 
       ? ['div', { class: 'image-caption' }, caption] 
@@ -157,7 +198,7 @@ export const EnhancedImage = Node.create<EnhancedImageOptions>({
       'div', 
       containerAttrs,
       ['div', { class: `image-align-${alignment || 'left'}` }, 
-        ['img', mergeAttributes({ class: imgClass }, attrs)],
+        ['img', mergeAttributes(imgAttrs)],
         captionElement,
       ],
     ];

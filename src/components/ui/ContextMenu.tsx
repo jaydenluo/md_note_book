@@ -80,7 +80,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.1 }}
-          className="fixed z-50 min-w-[160px] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden"
+          className="fixed z-50 min-w-[160px] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden pointer-events-auto"
           style={{
             left: `${x}px`,
             top: `${y}px`,
@@ -90,7 +90,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             {items.map((item) => (
               <button
                 key={item.id}
-                onClick={() => handleItemClick(item)}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleItemClick(item);
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleItemClick(item);
+                }}
+                type="button"
                 disabled={item.disabled}
                 className={`w-full text-left px-4 py-2 text-sm flex items-center ${
                   item.disabled
@@ -118,14 +128,14 @@ export function useContextMenu() {
     x: number;
     y: number;
     type?: string;
-    data?: any;
+    data?: unknown;
   }>({
     visible: false,
     x: 0,
     y: 0,
   });
 
-  const showContextMenu = (e: React.MouseEvent, type?: string, data?: any) => {
+  const showContextMenu = (e: React.MouseEvent, type?: string, data?: unknown) => {
     e.preventDefault();
     
     // 计算菜单位置，确保不会超出屏幕边界

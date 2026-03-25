@@ -74,10 +74,17 @@ pnpm run build
 pnpm run preview
 
 ```
+### 打包为win桌面应用的命令是什么
+
+``` bash
+pnpm run tauri:build:windows
+
+```
 
 rm  node_modules
 
 
+cd src-tauri && cargo clean && cd .. && pnpm tauri dev
 
 
 
@@ -87,29 +94,108 @@ rm  node_modules
 
 
 
+## macOS 打包怎么做（Tauri）
+
+### 1) 必备环境（在 Mac 上执行）
+- **Xcode Command Line Tools**
+```bash
+xcode-select --install
+```
+
+- **Rust**
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup update
+```
+
+- **Node + pnpm**（你项目已经用 pnpm）
+```bash
+corepack enable
+pnpm -v
+```
+
+- **Tauri 依赖（v2 常见）**
+```bash
+pnpm add -D @tauri-apps/cli
+```
+（你项目里应该已经有了）
+
+---
+
+## 2) 最常用的打包命令
+在项目根目录（和你 Windows 一样）：
+
+```bash
+pnpm run build
+pnpm tauri build
+```
+
+生成产物一般在：
+- `src-tauri/target/release/bundle/`
+  - `.app`
+  - `.dmg`（如果你配置了 dmg）
+  - 可能还有 `.pkg`
+
+如果你只是想快速出一个 `.app`，通常 `pnpm tauri build` 就够。
+
+---
+
+## 3) 打 Intel / Apple Silicon（重要）
+macOS 有两种架构：
+
+- **Apple Silicon（M1/M2/M3）**
+```bash
+pnpm tauri build
+```
+
+- **Intel（x86_64）**（在 Apple Silicon 上交叉构建）
+```bash
+rustup target add x86_64-apple-darwin
+pnpm tauri build --target x86_64-apple-darwin
+```
+
+- **通用包（Universal）**  
+Tauri 做 universal 通常需要分别构建两份再合并（lipo），流程会更复杂；你如果需要我可以按你当前 Tauri 版本给你一套可执行步骤。
+
+---
+
+## 4) 签名/公证（可选，但分发通常需要）
+- **本地自用/测试**：不签名也能跑（可能有 Gatekeeper 提示）
+- **给别人安装、上架、减少弹窗**：建议做
+  - 需要 Apple Developer 账号
+  - 配置 `codesign` + notarize
+
+你先告诉我你目标是哪种：
+- **A**：自己用/内测，能生成 `.app/.dmg` 就行
+- **B**：要分发给别人安装（需要签名/公证）
+- **C**：要上 Mac App Store（流程不同）
+
+---
+
+## 5) 你项目里可以加一个 mac 打包脚本（可选）
+你现在 README 里有 `pnpm run tauri:build:windows`。如果你愿意，我可以帮你在 [package.json](cci:7://file:///d:/AI/note_book/package.json:0:0-0:0) 里加：
+
+- `tauri:build:mac` -> `tauri build`
+- `tauri:build:mac:x64` -> `tauri build --target x86_64-apple-darwin`
+
+但我需要先看你的 `package.json scripts` 现状（你同意我再改）。
+
+---
+
+## 我需要你确认 2 个问题，给你最准确命令
+- **1)** 你是在 **Mac 上打包**，还是想在 **Windows 上远程打包 mac**？（后者不现实，通常要 Mac）
+- **2)** 你要产物是 `.app` 还是 `.dmg`（或都要）？
+
+---
+
+## 状态
+- **mac 打包指导**：已给出可执行步骤  
+- **下一步**：你回答上面 2 个问题，我再把命令和产物路径/签名建议对齐到你的需求
 
 
 
 
-
-
-   .table-drag-handle::before {
-     content: '';
-     position: absolute;
-     left: -8px;
-     right: -8px;
-     top: -8px;
-     bottom: -8px;
-   }
-
-
-
-
-
-
-
-
-
+BAC707BF-FE3A-4422-BF78-16A611D32672
 
 
 

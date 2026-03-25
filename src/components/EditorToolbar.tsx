@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react'
 import { type Editor } from '@tiptap/core'
-import {
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
+import { 
+  Bold, 
+  Italic, 
+  Underline, 
+  Strikethrough, 
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -12,50 +12,25 @@ import {
   ListOrdered,
   Quote,
   Code,
-  Code2,
-  FileText,
-  Undo,
-  Redo,
   Image as ImageIcon,
   Table,
-  TableCellsMerge,
-  TableCellsSplit,
   Link,
-  RotateCcw,
-  Trash,
-  Minus,
-  ChevronDown,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
+  Undo,
+  Redo,
+  SquareCode,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useConfig } from '@/stores/configStore'
 import { NormalWidthIcon, WideWidthIcon } from './icons'
 import { Button } from './ui/button'
 import { cn } from '@/utils/cn'
-import { buttonVariants } from './ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from './ui/dropdown-menu'
-import { Separator } from '@/components/ui/separator'
-import { Toolbar, ToolbarToggleGroup, ToolbarToggleItem } from '@/components/ui/toolbar'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuSeparator,
-  ContextMenuTrigger
-} from './ui/context-menu'
+import { LinkDialog } from './ui/link-dialog'
 
 // 工具栏属性接口
 interface EditorToolbarProps {
@@ -66,19 +41,18 @@ interface EditorToolbarProps {
 interface ToolbarButtonProps {
   onClick: () => void
   isActive?: boolean
-  icon: React.ComponentType<{ size?: number }> | string
+  icon: React.ComponentType<{ className?: string }> | string
   title: string
   disabled?: boolean
   isText?: boolean
 }
 
-const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(({
-  onClick,
-  isActive = false,
-  icon: Icon,
-  title,
+const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(({ 
+  onClick, 
+  isActive = false, 
+  icon: Icon, 
+  title, 
   disabled = false,
-  isText = false
 }, ref) => {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -93,13 +67,13 @@ const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(({
       disabled={disabled}
       title={title}
       className={`h-8 w-8 p-0 rounded flex items-center justify-center transition-colors ${isActive ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-100' :
-          'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-        } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+        'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+      } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
       {typeof Icon === 'string' ? (
         <span className="text-sm">{Icon}</span>
       ) : (
-        <Icon size={16} />
+        <Icon className="w-4 h-4" />
       )}
     </button>
   )
@@ -109,35 +83,31 @@ ToolbarButton.displayName = 'ToolbarButton'
 
 // 分隔线组件
 const ToolbarSeparator = React.forwardRef<HTMLDivElement>((props, ref) => {
-  return <div ref={ref} className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
+  return <div ref={ref} className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
 })
 
 ToolbarSeparator.displayName = 'ToolbarSeparator'
 
-// 添加表格尺寸选项
-const TABLE_SIZES = Array.from({ length: 10 }, (_, i) => i + 1).map(size => ({
-  rows: size,
-  cols: size,
-  label: `${size} × ${size}`
-}))
-
 const EditorToolbar = ({ editor }: EditorToolbarProps) => {
-  // 添加文件输入引用
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // 将所有hooks移到组件顶部
+  const { config, updateConfigItem } = useConfig()
+  const [showLinkDialog, setShowLinkDialog] = useState(false)
+  const [hoveredSize, setHoveredSize] = React.useState({ rows: 0, cols: 0 })
+  const [open, setOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!editor) {
     return null
   }
 
   // 获取编辑器宽度模式配置
-  const { config, updateConfigItem } = useConfig();
-  const isWideMode = config.editorWidthMode === 'wide';
+  const isWideMode = config.editorWidthMode === 'wide'
 
   // 切换编辑器宽度模式
   const toggleWidthMode = () => {
-    const newMode = isWideMode ? 'normal' : 'wide';
-    updateConfigItem('editorWidthMode', newMode);
-  };
+    const newMode = isWideMode ? 'normal' : 'wide'
+    updateConfigItem('editorWidthMode', newMode)
+  }
 
   // 检查当前格式状态
   const isActive = (name: string, attributes?: Record<string, unknown>) => {
@@ -149,52 +119,89 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
     editor.chain().focus().setNode('codeBlock', { language: 'plaintext' }).run()
   }
 
-  // 添加图片上传处理函数
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  // 添加图片上传处理函数 - 使用文件化存储
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file && editor) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          try {
-            // 使用setTimeout避免在渲染周期内调用flushSync
-            setTimeout(() => {
-              // 使用增强图片扩展
-              editor.chain().focus().insertContent({
-                type: 'enhancedImage',
-                attrs: {
-                  src: result,
-                  alt: file.name,
-                  size: 'medium',
-                  alignment: 'center',
-                  border: true,
-                  shadow: true
-                }
-              }).run();
-            }, 0);
-          } catch (error) {
-            console.error('插入图片失败:', error);
+      try {
+        // 导入图片存储服务
+        const { uploadAndSaveImage, getImageUrl } = await import('../services/imageStorage')
+        
+        // 上传并保存图片文件
+        const imageInfo = await uploadAndSaveImage(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 800,
+          format: 'webp',
+          quality: 0.8,
+        })
+        
+        // 获取图片URL
+        const imageUrl = await getImageUrl(imageInfo.path)
+        
+        // 使用setTimeout避免在渲染周期内调用flushSync
+        setTimeout(() => {
+          // 使用增强图片扩展，存储图片路径而不是base64
+          editor.chain().focus().insertContent({
+            type: 'enhancedImage',
+            attrs: {
+              src: imageUrl,
+              alt: imageInfo.originalName,
+              size: 'medium',
+              alignment: 'center',
+              border: true,
+              shadow: true,
+              // 添加图片信息属性
+              'data-image-id': imageInfo.id,
+              'data-image-path': imageInfo.path,
+              'data-image-size': imageInfo.size,
+              'data-image-width': imageInfo.width,
+              'data-image-height': imageInfo.height,
+            }
+          }).run()
+        }, 0)
+        
+        console.log('图片上传成功:', imageInfo)
+      } catch (error) {
+        console.error('图片上传失败:', error)
+        // 如果文件化存储失败，回退到base64方式
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const result = e.target?.result as string
+          if (result) {
+            try {
+              setTimeout(() => {
+                editor.chain().focus().insertContent({
+                  type: 'enhancedImage',
+                  attrs: {
+                    src: result,
+                    alt: file.name,
+                    size: 'medium',
+                    alignment: 'center',
+                    border: true,
+                    shadow: true
+                  }
+                }).run()
+              }, 0)
+            } catch (error) {
+              console.error('插入图片失败:', error)
+            }
           }
         }
-      };
-      reader.onerror = (error) => {
-        console.error('读取图片文件失败:', error);
-      };
-      reader.readAsDataURL(file);
+        reader.onerror = (error) => {
+          console.error('读取图片文件失败:', error)
+        }
+        reader.readAsDataURL(file)
+      }
     }
     // 清除文件输入，以便可以重复选择同一文件
     if (event.target) {
-      event.target.value = '';
+      event.target.value = ''
     }
-  };
-
-  const [hoveredSize, setHoveredSize] = React.useState({ rows: 0, cols: 0 })
-  const [open, setOpen] = useState(false)
+  }
 
   return (
-    <div className="border-b border-input bg-transparent px-3">
-      <div className="flex items-center gap-1 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+    <div className="border-b border-input bg-transparent px-2">
+      <div className="flex items-center gap-0.5 p-1 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         {/* 基本格式化工具 */}
 
         {/* 撤销/重做工具 */}
@@ -244,42 +251,42 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           isActive={isActive('heading', { level: 1 })}
-          icon={Heading1}
+          icon="H1"
           title="标题1"
           isText
         />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           isActive={isActive('heading', { level: 2 })}
-          icon={Heading2}
+          icon="H2"
           title="标题2"
           isText
         />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           isActive={isActive('heading', { level: 3 })}
-          icon={Heading3}
+          icon="H3"
           title="标题3"
           isText
         />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
           isActive={isActive('heading', { level: 4 })}
-          icon={Heading4}
+          icon="H4"
           title="标题4"
           isText
         />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}
           isActive={isActive('heading', { level: 5 })}
-          icon={Heading5}
+          icon="H5"
           title="标题5"
           isText
         />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}
           isActive={isActive('heading', { level: 6 })}
-          icon={Heading6}
+          icon="H6"
           title="标题6"
           isText
         />
@@ -340,8 +347,15 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
         <ToolbarButton
           onClick={toggleCodeBlock}
           isActive={isActive('codeBlock')}
-          icon={Code2}
+          icon={SquareCode}
           title="代码块"
+        />
+        {/* 链接工具 */}
+        <ToolbarButton
+          onClick={() => setShowLinkDialog(true)}
+          isActive={isActive('link')}
+          icon={Link}
+          title="添加链接"
         />
         <ToolbarSeparator />
 
@@ -366,7 +380,7 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
             <DropdownMenuLabel className="text-sm font-medium px-2 py-1.5">插入表格</DropdownMenuLabel>
             <DropdownMenuSeparator className="mb-1" />
             <div className="px-2 pb-2">
-              <div 
+              <div
                 className="grid grid-cols-10 gap-[1.5px] p-2 rounded-md bg-muted/10 dark:bg-muted/5 border border-border/20"
                 style={{ aspectRatio: '1/1' }}
               >
@@ -390,9 +404,9 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
                       )}
                       onMouseEnter={() => setHoveredSize({ rows: row, cols: col })}
                       onClick={() => {
-                        editor.chain().focus().insertTable({ 
-                          rows: row + 1, 
-                          cols: col + 1 
+                        editor.chain().focus().insertTable({
+                          rows: row + 1,
+                          cols: col + 1
                         }).run()
                         setOpen(false)
                       }}
@@ -401,39 +415,14 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
                 })}
               </div>
               <div className="mt-2 text-center text-sm text-muted-foreground/70">
-                {hoveredSize.rows > 0 && hoveredSize.cols > 0 ? 
-                  `${hoveredSize.rows + 1} × ${hoveredSize.cols + 1}` : 
+                {hoveredSize.rows > 0 && hoveredSize.cols > 0 ?
+                  `${hoveredSize.rows + 1} × ${hoveredSize.cols + 1}` :
                   "移动鼠标选择大小"
                 }
               </div>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* 合并单元格按钮 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor?.chain().focus().mergeCells().run()}
-          disabled={!editor?.can().mergeCells()}
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
-          title="合并单元格"
-        >
-          <TableCellsMerge className="h-4 w-4" />
-        </Button>
-
-        {/* 拆分单元格按钮 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor?.chain().focus().splitCell().run()}
-          disabled={!editor?.can().splitCell()}
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
-          title="拆分单元格"
-        >
-          <TableCellsSplit className="h-4 w-4" />
-        </Button>
-        <ToolbarSeparator />
 
         {/* 添加图片上传按钮 */}
         <input
@@ -448,9 +437,6 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
           icon={ImageIcon}
           title="上传图片"
         />
-        <ToolbarSeparator />
-
-
 
         {/* 宽度模式切换按钮 */}
         <button
@@ -459,10 +445,16 @@ const EditorToolbar = ({ editor }: EditorToolbarProps) => {
             }`}
           title={isWideMode ? "切换到普通宽度" : "切换到宽屏模式"}
         >
-          {React.createElement(isWideMode ? NormalWidthIcon : WideWidthIcon, { className: "w-4 h-4" })}
+          {isWideMode ? <NormalWidthIcon className="w-4 h-4" /> : <WideWidthIcon className="w-4 h-4" />}
         </button>
 
       </div>
+      {/* 添加链接对话框 */}
+      <LinkDialog
+        editor={editor}
+        isOpen={showLinkDialog}
+        onClose={() => setShowLinkDialog(false)}
+      />
     </div>
   )
 }

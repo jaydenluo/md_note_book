@@ -22,6 +22,9 @@ import { useConfig } from '../stores/configStore'
 import { EnhancedImage } from '../lib/extensions/EnhancedImage' // 导入增强图片扩展
 import { CustomTable, CustomTableCell, TableRow, TableHeader } from '../lib/extensions/table'
 import { TableBubbleMenu } from './ui/table-bubble-menu'
+import { EditorContextMenu } from './ui/editor-context-menu'
+import { cn } from '../lib/utils'
+
 // 自定义类型声明
 interface WindowWithEditor extends Window {
   tiptapEditorInstance?: Editor;
@@ -1287,6 +1290,7 @@ const TiptapEditor = ({
   placeholder = '开始编写笔记...',
   showToolbar = true // 默认显示工具栏
 }: TiptapEditorProps): React.ReactElement => {
+  // 获取配置
   const { config } = useConfig();
   const isWideMode = config.editorWidthMode === 'wide';
   const isFirstRender = useRef(true);
@@ -1327,9 +1331,14 @@ const TiptapEditor = ({
       Underline,
       Link.configure({
         openOnClick: false,
+        autolink: true, // 启用自动链接
+        linkOnPaste: true, // 粘贴时自动转换为链接
         HTMLAttributes: {
           class: 'text-blue-500 underline cursor-pointer hover:text-blue-700 transition-colors',
+          rel: 'noopener noreferrer nofollow', // 添加安全属性
+          target: '_blank', // 在新标签页打开
         },
+        validate: href => /^https?:\/\//.test(href), // 只允许 http/https 链接
       }),
       Placeholder.configure({
         placeholder,
@@ -1493,21 +1502,20 @@ const TiptapEditor = ({
   }, [showConfirm]);
 
   return (
-    <div className="flex flex-col h-full">
-      {editor && (
-        <>
-          {showToolbar && (
-            <EditorToolbar editor={editor} />
-          )}
-        </>
-      )}
-      <div className="flex-1 overflow-y-auto relative">
-        {editor && <TableBubbleMenu editor={editor} />}
-        <EditorContent 
-          editor={editor} 
-          className={`editor-content ${isWideMode ? 'wide' : ''} ${className}`}
-        />
+    <div className="tiptap-editor-container">
+      {showToolbar && <EditorToolbar editor={editor} />}
+      {editor ? (
+        <EditorContextMenu editor={editor}>
+          <div className={cn('editor-content', isWideMode && 'wide', className)}>
+            <EditorContent editor={editor} />
+            <TableBubbleMenu editor={editor} />
       </div>
+        </EditorContextMenu>
+      ) : (
+        <div className={cn('editor-content', isWideMode && 'wide', className)}>
+          <EditorContent editor={editor} />
+        </div>
+      )}
     </div>
   );
 };
