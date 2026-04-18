@@ -6,6 +6,7 @@ import { tauriEnvironment } from '@utils/tauri';
 import { useEffect } from 'react';
 import { getDataRootDir } from '@/services/fileDataStorage'
 import { GitSyncService } from '@/services/gitSync'
+import { buildReminderSchedule } from '@/utils/reminderScheduling'
 import { useTabs } from './tabsStore'
 
 // 定义笔记类型
@@ -18,6 +19,13 @@ export interface Note {
   parentId?: string;
   filePath?: string;
   reminder?: Date;
+  dueDate?: Date;
+  reminderEnabled?: boolean;
+  reminderState?: {
+    notified30d?: boolean;
+    notified7d?: boolean;
+    notifiedOnDay?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -130,6 +138,13 @@ interface CreateNotePayload {
   type?: string;
   categoryId?: string | null;
   parentId?: string | null;
+  dueDate?: Date;
+  reminderEnabled?: boolean;
+  reminderState?: {
+    notified30d?: boolean;
+    notified7d?: boolean;
+    notifiedOnDay?: boolean;
+  };
 }
 
 interface NoteStore {
@@ -309,7 +324,10 @@ export const useNotes = create<NoteStore>((set, get) => ({
       content = '',
       type = 'doc',
       categoryId = null,
-      parentId = null
+      parentId = null,
+      dueDate,
+      reminderEnabled,
+      reminderState
     } = payload;
     
     console.log('【创建笔记】开始创建笔记，标题:', title, '内容长度:', content?.length || 0);
@@ -321,6 +339,9 @@ export const useNotes = create<NoteStore>((set, get) => ({
       type,
       categoryId: categoryId || undefined,
       parentId: parentId || undefined,
+      dueDate,
+      reminderEnabled,
+      reminderState,
       createdAt: new Date(),
       updatedAt: new Date()
     }

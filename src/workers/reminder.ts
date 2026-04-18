@@ -1,11 +1,19 @@
-interface ReminderMessage {
-  type: 'SET_REMINDER' | 'CLEAR_REMINDER'
+interface ReminderEntry {
   noteId: string
-  title: string
-  time?: number
+  noteTitle: string
+  reminderTime: number
+  reminderKey?: string
 }
 
+type ReminderMessage =
+  | ({ type: 'SET_REMINDER' } & ReminderEntry)
+  | { type: 'CLEAR_REMINDER'; noteId: string; reminderKey?: string }
+  | { type: 'INIT_REMINDERS'; reminders: ReminderEntry[] }
+
 const reminders = new Map<string, number>()
+
+const getReminderId = (noteId: string, reminderKey?: string) =>
+  reminderKey ? `${noteId}:${reminderKey}` : noteId
 
 const checkPermission = async () => {
   if (!('Notification' in window)) {
@@ -25,52 +33,55 @@ const checkPermission = async () => {
   return false
 }
 
-const showNotification = async (noteId: string, title: string) => {
+const showNotification = async (title: string) => {
   if (await checkPermission()) {
     new Notification('笔记提醒', {
       body: `提醒：${title}`,
-      icon: '/favicon.ico'
+      icon: '/favicon.ico',
     })
   }
 }
 
-const handleSetReminder = (noteId: string, title: string, time: number) => {
-  // 清除已存在的提醒
-  if (reminders.has(noteId)) {
-    clearTimeout(reminders.get(noteId))
+const handleSetReminder = (entry: ReminderEntry) => {
+  const reminderId = getReminderId(entry.noteId, entry.reminderKey)
+
+  if (reminders.has(reminderId)) {
+    clearTimeout(reminders.get(reminderId))
   }
 
-  const now = Date.now()
-  const delay = time - now
+  const delay = entry.reminderTime - Date.now()
 
   if (delay > 0) {
     const timerId = setTimeout(() => {
-      showNotification(noteId, title)
-      reminders.delete(noteId)
+      showNotification(entry.noteTitle)
+      reminders.delete(reminderId)
     }, delay)
 
-    reminders.set(noteId, timerId)
+    reminders.set(reminderId, timerId)
   }
 }
 
-const handleClearReminder = (noteId: string) => {
-  if (reminders.has(noteId)) {
-    clearTimeout(reminders.get(noteId))
-    reminders.delete(noteId)
+const handleClearReminder = (noteId: string, reminderKey?: string) => {
+  const reminderId = getReminderId(noteId, reminderKey)
+
+  if (reminders.has(reminderId)) {
+    clearTimeout(reminders.get(reminderId))
+    reminders.delete(reminderId)
   }
 }
 
 self.onmessage = (event: MessageEvent<ReminderMessage>) => {
-  const { type, noteId, title, time } = event.data
-
-  switch (type) {
+  switch (event.data.type) {
     case 'SET_REMINDER':
-      if (time) {
-        handleSetReminder(noteId, title, time)
-      }
+      handleSetReminder(event.data)
       break
     case 'CLEAR_REMINDER':
-      handleClearReminder(noteId)
+      handleClearReminder(event.data.noteId, event.data.reminderKey)
+      break
+    case 'INIT_REMINDERS':
+      reminders.forEach((timerId) => clearTimeout(timerId))
+      reminders.clear()
+      event.data.reminders.forEach(handleSetReminder)
       break
   }
-} 
+}

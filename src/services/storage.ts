@@ -72,6 +72,7 @@ const loadFromLocalStorage = <T extends Category | Note | Tag | NoteTag>(key: ke
           createdAt?: Date | string;
           updatedAt?: Date | string;
           reminder?: Date | string;
+          dueDate?: Date | string;
         };
       
       // 处理日期字段
@@ -89,6 +90,11 @@ const loadFromLocalStorage = <T extends Category | Note | Tag | NoteTag>(key: ke
           if (processedItem.reminder) {
             processedItem.reminder = typeof processedItem.reminder === 'string' 
               ? new Date(processedItem.reminder) 
+              : undefined;
+          }
+          if (processedItem.dueDate) {
+            processedItem.dueDate = typeof processedItem.dueDate === 'string'
+              ? new Date(processedItem.dueDate)
               : undefined;
           }
       } catch (dateError) {
@@ -155,6 +161,11 @@ const saveToLocalStorage = <T extends Category | Note | Tag | NoteTag>(key: keyo
       if ('reminder' in newItem && newItem.reminder instanceof Date) {
         const dateItem = newItem as unknown as { reminder: Date };
         (newItem as unknown as { reminder: string | undefined }).reminder = dateItem.reminder.toISOString();
+      }
+
+      if ('dueDate' in newItem && newItem.dueDate instanceof Date) {
+        const dateItem = newItem as unknown as { dueDate: Date };
+        (newItem as unknown as { dueDate: string | undefined }).dueDate = dateItem.dueDate.toISOString();
       }
       
       // 特别检查笔记数据
@@ -239,10 +250,11 @@ async function getNoteById(id: string): Promise<Note | null> {
       const notesStr = localStorage.getItem('notes');
       if (!notesStr) return null;
 
-      const allNotes = JSON.parse(notesStr) as (Omit<Note, 'createdAt' | 'updatedAt' | 'reminder'> & {
+      const allNotes = JSON.parse(notesStr) as (Omit<Note, 'createdAt' | 'updatedAt' | 'reminder' | 'dueDate'> & {
         createdAt: string;
         updatedAt: string;
         reminder?: string;
+        dueDate?: string;
       })[];
       const note = allNotes.find(n => n.id === id);
 
@@ -253,6 +265,7 @@ async function getNoteById(id: string): Promise<Note | null> {
         createdAt: new Date(note.createdAt),
         updatedAt: new Date(note.updatedAt),
         reminder: note.reminder ? new Date(note.reminder) : undefined,
+        dueDate: note.dueDate ? new Date(note.dueDate) : undefined,
         content: note.content || '',
         title: note.title || '无标题',
         type: note.type || 'doc'
@@ -890,7 +903,8 @@ export const storage = {
           ...n,
           createdAt: new Date(n.createdAt),
           updatedAt: new Date(n.updatedAt),
-          reminder: n.reminder ? new Date(n.reminder) : undefined
+          reminder: n.reminder ? new Date(n.reminder) : undefined,
+          dueDate: n.dueDate ? new Date(n.dueDate) : undefined
         })));
       }
       

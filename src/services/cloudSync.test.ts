@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CloudSyncService } from '@services/cloudSync'
-import { mockWebDAV, generateTestCategory, generateTestNote } from '@test/utils'
+import { generateTestCategory, generateTestNote } from '@test/utils'
 
-vi.mock('webdav', () => mockWebDAV())
+vi.mock('webdav', async () => {
+  const { mockWebDAV } = await import('@test/utils')
+  return mockWebDAV()
+})
 
 describe('CloudSyncService', () => {
   let service: CloudSyncService

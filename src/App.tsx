@@ -14,10 +14,13 @@ import { TabManager } from './components/TabManager'
 import { NoteTab } from './components/NoteTab'
 import { ResizablePanel } from './components/ui/ResizablePanel'
 import { Sidebar } from './components/Sidebar'
+import { ReminderBoard } from './components/ReminderBoard'
+import { ReminderCardDialog, type ReminderCardFormValues } from './components/ReminderCardDialog'
 import { setupContextMenu } from '@utils/contextMenu'
 import { useAlertDialog } from '@/components/ui/alert-dialog'
 import type { Note } from '@stores/noteStore'
 import { useQuickSearch } from '@/components/QuickSearchDialog'
+import { useUiModeStore } from '@stores/uiModeStore'
 
 // Lucide 图标组件
 import { Search, FileText, FileDown, Trash2 } from 'lucide-react'
@@ -56,6 +59,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768)
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
+  const [editingReminderCard, setEditingReminderCard] = useState<Note | null>(null)
   
   const { contextMenu, showContextMenu, hideContextMenu } = useContextMenu();
   const deleteNote = useNotes(state => state.deleteNote)
@@ -136,6 +141,7 @@ function App() {
   const createCategory = useCategories(state => state.createCategory)
   const { isDark } = useTheme()
   const { showConfirm } = useAlertDialog()
+  const uiMode = useUiModeStore(state => state.mode)
   
   // 获取配置
   const { config } = useConfig()
@@ -326,8 +332,49 @@ function App() {
   /**
    * 筛选笔记列表
    */
+  const handleCreateReminderCard = () => {
+    setEditingReminderCard(null)
+    setIsReminderDialogOpen(true)
+  }
+
+  const handleEditReminderCard = (note: Note) => {
+    setEditingReminderCard(note)
+    setIsReminderDialogOpen(true)
+  }
+
+  const handleSaveReminderCard = async (values: ReminderCardFormValues) => {
+    const payload = {
+      title: values.title.trim(),
+      content: values.content,
+      categoryId: values.categoryId || selectedCategoryId || undefined,
+      dueDate: new Date(`${values.dueDate}T00:00:00`),
+      reminderEnabled: values.reminderEnabled,
+      type: 'reminder-card',
+    } as const
+
+    if (editingReminderCard) {
+      await updateNote(editingReminderCard.id, payload)
+    } else {
+      createNote(payload)
+    }
+
+    setEditingReminderCard(null)
+    setIsReminderDialogOpen(false)
+  }
+
+  const handleDeleteReminderCard = async () => {
+    if (!editingReminderCard) return
+
+    await deleteNote(editingReminderCard.id)
+    setEditingReminderCard(null)
+    setIsReminderDialogOpen(false)
+  }
+
   const filteredNotes = useMemo(() => {
     return notes.filter(note => {
+      if (note.type === 'reminder-card') {
+        return false;
+      }
       // 分类筛选
       if (selectedCategoryId && note.categoryId !== selectedCategoryId) {
         return false;
@@ -444,7 +491,9 @@ function App() {
           activateTab(currentTabs[0].id);
         } else {
           // 如果没有任何打开的标签，尝试自动选中当前分类下的第一篇笔记
-          const categoryNotes = allNotesList.filter(n => n.categoryId === targetCategoryId && n.type !== 'folder');
+          const categoryNotes = allNotesList.filter(
+            n => n.categoryId === targetCategoryId && n.type !== 'folder' && n.type !== 'reminder-card'
+          );
           if (categoryNotes.length > 0) {
             const firstNote = categoryNotes[0];
             console.log('自动选中分类下的第一条笔记:', firstNote.id);
@@ -777,7 +826,13 @@ function App() {
         <div 
           className="grid h-full w-full" 
           style={{ 
-            gridTemplateColumns: sidebarOpen ? 'auto auto 1fr' : 'auto 1fr',
+            gridTemplateColumns: sidebarOpen
+              ? uiMode === 'reminder'
+                ? 'auto 1fr'
+                : 'auto auto 1fr'
+              : uiMode === 'reminder'
+                ? '1fr'
+                : 'auto 1fr',
             transition: 'grid-template-columns 0.3s ease'
           }}
         >
@@ -804,18 +859,41 @@ function App() {
             minWidth={280}
             maxWidth={500}
             direction="left"
-            className="h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10 overflow-hidden"
+            className={`${uiMode === 'reminder' ? 'hidden' : 'h-full'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10 overflow-hidden`}
           >
-            {renderNoteList()}
+            {uiMode === 'document' ? renderNoteList() : null}
           </ResizablePanel>
           
           {/* 主内容区 (Editor) */}
           <div className="min-w-0 h-full bg-white dark:bg-gray-800 relative w-full overflow-hidden">
-            {renderNoteContent()}
+            {uiMode === 'document' ? (
+              renderNoteContent()
+            ) : (
+              <ReminderBoard
+                selectedCategoryId={selectedCategoryId}
+                notes={notes}
+                categories={categories}
+                onCreateCard={handleCreateReminderCard}
+                onEditCard={handleEditReminderCard}
+              />
+            )}
           </div>
         </div>
         
         <QuickSearchDialog />
+        <ReminderCardDialog
+          open={isReminderDialogOpen}
+          note={editingReminderCard}
+          categories={categories}
+          onOpenChange={(open) => {
+            setIsReminderDialogOpen(open)
+            if (!open) {
+              setEditingReminderCard(null)
+            }
+          }}
+          onSave={handleSaveReminderCard}
+          onDelete={editingReminderCard ? handleDeleteReminderCard : undefined}
+        />
         
         <ContextMenu
           visible={contextMenu.visible}
@@ -854,7 +932,7 @@ function App() {
       )}
       
       <div className="flex flex-col flex-1">
-        {tabs.length > 0 && (
+        {uiMode === 'document' && tabs.length > 0 && (
           <TabManager 
             activeTabId={activeTabId}
             onTabChange={activateTab}
@@ -864,7 +942,15 @@ function App() {
           />
         )}
         
-        {selectedNoteId ? (
+        {uiMode === 'reminder' ? (
+          <ReminderBoard
+            selectedCategoryId={selectedCategoryId}
+            notes={notes}
+            categories={categories}
+            onCreateCard={handleCreateReminderCard}
+            onEditCard={handleEditReminderCard}
+          />
+        ) : selectedNoteId ? (
           <div className="flex-1 overflow-hidden">
             <NoteTab noteId={selectedNoteId} />
           </div>
@@ -874,6 +960,19 @@ function App() {
       </div>
       
       <QuickSearchDialog />
+      <ReminderCardDialog
+        open={isReminderDialogOpen}
+        note={editingReminderCard}
+        categories={categories}
+        onOpenChange={(open) => {
+          setIsReminderDialogOpen(open)
+          if (!open) {
+            setEditingReminderCard(null)
+          }
+        }}
+        onSave={handleSaveReminderCard}
+        onDelete={editingReminderCard ? handleDeleteReminderCard : undefined}
+      />
 
       <ContextMenu
         visible={contextMenu.visible}

@@ -64,9 +64,14 @@ export function mockWebDAV() {
   let store: { [key: string]: string } = {}
 
   return {
-    createClient: () => ({
+    createClient: (url: string) => ({
       exists: async (path: string) => !!store[path],
-      getDirectoryContents: async () => [],
+      getDirectoryContents: async () => {
+        if (url === 'invalid-url') {
+          throw new Error('Connection failed')
+        }
+        return []
+      },
       createDirectory: async () => {},
       putFileContents: async (path: string, content: string) => {
         store[path] = content

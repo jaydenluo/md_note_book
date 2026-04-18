@@ -10,6 +10,7 @@ import { SettingsDialog } from './SettingsDialog'
 import { CloudSyncDialog } from './CloudSyncDialog'
 import { GitSyncDialog } from './GitSyncDialog'
 import { useTheme } from '@utils/theme'
+import { useUiModeStore } from '@stores/uiModeStore'
 
 interface SidebarProps {
   selectedCategoryId: string | null
@@ -37,6 +38,8 @@ export const Sidebar: FC<SidebarProps> = ({
   const updateCategory = useCategories(state => state.updateCategory)
   const notes = useNotes(state => state.notes)
   const { showConfirm } = useAlertDialog()
+  const mode = useUiModeStore(state => state.mode)
+  const setMode = useUiModeStore(state => state.setMode)
 
   // 自动聚焦新分类输入框
   useEffect(() => {
@@ -121,7 +124,11 @@ export const Sidebar: FC<SidebarProps> = ({
 
   // 获取分类下的笔记数量
   const getCategoryNoteCount = (categoryId: string) => {
-    return notes.filter(note => note.categoryId === categoryId).length
+    const categoryNotes = notes.filter(note => note.categoryId === categoryId)
+    if (mode === 'reminder') {
+      return categoryNotes.filter(note => note.type === 'reminder-card').length
+    }
+    return categoryNotes.filter(note => note.type !== 'reminder-card').length
   }
   
   /* handleCategoryContextMenu 已经不再使用，一级菜单右键功能已取消 */
@@ -162,6 +169,31 @@ export const Sidebar: FC<SidebarProps> = ({
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
       <div className="flex-1 overflow-auto p-2">
         <div className="mb-4">
+          <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-gray-200 p-1 dark:bg-gray-700">
+            <button
+              type="button"
+              onClick={() => setMode('document')}
+              className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+                mode === 'document'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
+                  : 'text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              文档
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('reminder')}
+              className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+                mode === 'reminder'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
+                  : 'text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              提醒
+            </button>
+          </div>
+
           <div className="flex items-center justify-between px-2 py-1 text-sm font-medium text-gray-600 dark:text-gray-400">
             <span>分类</span>
             <motion.button
