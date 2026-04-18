@@ -72,84 +72,97 @@ export function ReminderCardDialog({
     setValues((current) => ({ ...current, [key]: value }))
   }
 
-  const handleSave = () => {
-    onSave(values)
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{note ? '编辑提醒卡片' : '新建卡片'}</DialogTitle>
-          <DialogDescription>
-            在备注里记录账号、密码、域名、IP 或操作说明。
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="overflow-hidden border-0 bg-white/95 p-0 shadow-2xl shadow-slate-900/30 sm:max-w-2xl dark:bg-slate-950/95">
+        <div className="bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-6 py-5 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold tracking-tight">
+              {note ? '编辑提醒卡片' : '新建提醒卡片'}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-blue-50/90">
+              把账号、密码、域名、IP、续费流程等都写进备注里，保持字段尽量简洁。
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="grid gap-4">
-          <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-            标题
-            <Input
-              aria-label="标题"
-              value={values.title}
-              onChange={(event) => updateField('title', event.target.value)}
-            />
-          </label>
+        <div className="grid gap-5 px-6 py-6">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              标题
+              <Input
+                aria-label="标题"
+                value={values.title}
+                onChange={(event) => updateField('title', event.target.value)}
+                className="h-11 rounded-xl border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+              />
+            </label>
 
-          <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-            分类
-            <select
-              aria-label="分类"
-              value={values.categoryId}
-              onChange={(event) => updateField('categoryId', event.target.value)}
-              className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              分类
+              <select
+                aria-label="分类"
+                value={values.categoryId}
+                onChange={(event) => updateField('categoryId', event.target.value)}
+                className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+              >
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-          <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-            到期日期
-            <Input
-              aria-label="到期日期"
-              type="date"
-              value={values.dueDate}
-              onChange={(event) => updateField('dueDate', event.target.value)}
-            />
-          </label>
+          <div className="grid gap-5 sm:grid-cols-[1fr,220px]">
+            <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              到期日期
+              <Input
+                aria-label="到期日期"
+                type="date"
+                value={values.dueDate}
+                onChange={(event) => updateField('dueDate', event.target.value)}
+                className="h-11 rounded-xl border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+              />
+            </label>
 
-          <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+              <div>
+                <div>启用提醒</div>
+                <div className="mt-1 text-xs font-normal text-slate-500 dark:text-slate-400">
+                  默认按 30 天 / 7 天 / 当天触发
+                </div>
+              </div>
+              <input
+                aria-label="启用提醒"
+                type="checkbox"
+                checked={values.reminderEnabled}
+                onChange={(event) => updateField('reminderEnabled', event.target.checked)}
+                className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+            </label>
+          </div>
+
+          <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
             备注
             <Textarea
               aria-label="备注"
-              rows={6}
+              rows={8}
               value={values.content}
               onChange={(event) => updateField('content', event.target.value)}
-            />
-          </label>
-
-          <label className="flex items-center justify-between rounded-md border border-gray-200 px-4 py-3 text-sm dark:border-gray-700">
-            <span>启用提醒</span>
-            <input
-              aria-label="启用提醒"
-              type="checkbox"
-              checked={values.reminderEnabled}
-              onChange={(event) => updateField('reminderEnabled', event.target.checked)}
+              className="min-h-[220px] rounded-2xl border-slate-200 bg-slate-50 leading-7 dark:border-slate-700 dark:bg-slate-900"
             />
           </label>
         </div>
 
-        <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between">
+        <DialogFooter className="flex items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/80 px-6 py-4 sm:justify-between dark:border-slate-800 dark:bg-slate-950/80">
           <div>
             {note && onDelete ? (
               <button
                 type="button"
                 onClick={onDelete}
-                className="rounded-md bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
+                className="rounded-xl bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
               >
                 删除
               </button>
@@ -159,14 +172,14 @@ export function ReminderCardDialog({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200"
+              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               取消
             </button>
             <button
               type="button"
-              onClick={handleSave}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              onClick={() => onSave(values)}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 hover:bg-blue-700"
             >
               保存
             </button>

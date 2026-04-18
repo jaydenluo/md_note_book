@@ -21,6 +21,7 @@ import { useAlertDialog } from '@/components/ui/alert-dialog'
 import type { Note } from '@stores/noteStore'
 import { useQuickSearch } from '@/components/QuickSearchDialog'
 import { useUiModeStore } from '@stores/uiModeStore'
+import { useReminderNotifications } from '@hooks/useReminderNotifications'
 
 // Lucide 图标组件
 import { Search, FileText, FileDown, Trash2 } from 'lucide-react'
@@ -142,6 +143,8 @@ function App() {
   const { isDark } = useTheme()
   const { showConfirm } = useAlertDialog()
   const uiMode = useUiModeStore(state => state.mode)
+
+  useReminderNotifications(notes)
   
   // 获取配置
   const { config } = useConfig()
