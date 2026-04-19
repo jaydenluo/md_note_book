@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+﻿import React, { useMemo } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { storage } from '@services/storage'
 import { useCategories } from '@stores/categoryStore'
@@ -126,6 +126,21 @@ function App() {
 
     return items;
   };
+
+  const getNoteListContextMenuItems = (): ContextMenuItem[] => [
+    {
+      id: 'create-doc',
+      label: '新建文档',
+      icon: <FilePlusIcon className="h-4 w-4" />,
+      onClick: handleCreateDoc,
+    },
+    {
+      id: 'create-folder',
+      label: '新建文件夹',
+      icon: <FolderPlusIcon className="h-4 w-4" />,
+      onClick: handleCreateFolder,
+    },
+  ];
   
   const titleInputRef = useRef<HTMLInputElement>(null)
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -178,6 +193,13 @@ function App() {
       if (existingTab) {
         activateTab(existingTab.id);
       } else {
+        if (tabs.length >= 10 && tabs[0]) {
+          window.dispatchEvent(
+            new CustomEvent('notebook:flush-tab-before-close', {
+              detail: { noteId: tabs[0].noteId },
+            }),
+          )
+        }
         addTab(noteId, note.title);
       }
       // 确保内容被加载
@@ -252,6 +274,13 @@ function App() {
       type: 'doc',
       parentId: (dragOverFolderId && dragOverFolderId !== 'root') ? (dragOverFolderId as string) : undefined
     });
+    if (tabs.length >= 10 && tabs[0]) {
+      window.dispatchEvent(
+        new CustomEvent('notebook:flush-tab-before-close', {
+          detail: { noteId: tabs[0].noteId },
+        }),
+      )
+    }
     addTab(id, '新文档')
     activateTab(id)
   };
@@ -538,12 +567,20 @@ function App() {
     showContextMenu(e, 'note', { note });
   };
 
+  const handleNoteListRightClick = (e: React.MouseEvent) => {
+    showContextMenu(e, 'note-list');
+  };
+
   /**
    * 渲染二级笔记列表
    */
   const renderNoteList = () => {
     const folders = filteredNotes.filter(n => n.type === 'folder' && !n.parentId);
     const rootDocs = filteredNotes.filter(n => n.type !== 'folder' && !n.parentId);
+    const currentCategoryName = selectedCategoryId
+      ? categories.find(c => c.id === selectedCategoryId)?.name || '未知分类'
+      : '所有笔记';
+    const totalDisplayedDocs = filteredNotes.filter(n => n.type !== 'folder').length;
     const notesByParent: Record<string, typeof filteredNotes> = {};
     filteredNotes.forEach(n => {
       if (n.parentId) {
@@ -553,111 +590,199 @@ function App() {
     });
 
     return (
-    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-gray-800">
-      <div className="h-9 py-0 px-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-      <div className="flex">
-      <button 
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+    <div className="flex h-full min-h-0 flex-col bg-transparent" onContextMenu={handleNoteListRightClick}>
+      <div className="border-b border-slate-200/70 bg-white/70 px-4 pb-4 pt-4 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/40">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200/70 bg-white/80 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-900"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                title={sidebarOpen ? '收起侧边栏' : '展开侧边栏'}
+              >
+                <MenuIcon className="h-4.5 w-4.5" />
+              </button>
+              <span className="inline-flex items-center rounded-full bg-teal-500/12 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-teal-700 dark:bg-teal-400/12 dark:text-teal-200">
+                WORKSPACE
+              </span>
+            </div>
+            <h2
+              className="mt-3 truncate text-lg font-semibold tracking-tight text-slate-900 dark:text-white"
+              title={selectedCategoryId ? `${currentCategoryName} (${filteredNotes.length})` : `所有笔记 (${filteredNotes.length})`}
             >
-            <MenuIcon className="h-5 w-5" />
-            </button>
-        <h2 className="font-medium dark:text-white truncate max-w-[150px]" title={selectedCategoryId 
-            ? `${categories.find(c => c.id === selectedCategoryId)?.name || '未知分类'} (${filteredNotes.length})`
-            : `所有笔记 (${filteredNotes.length})`}>
-          {selectedCategoryId 
-            ? `${categories.find(c => c.id === selectedCategoryId)?.name || '未知分类'} (${filteredNotes.length})`
-            : `所有笔记 (${filteredNotes.length})`}
-        </h2>
-      </div>
+              {currentCategoryName}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {folders.length} 个目录 · {totalDisplayedDocs} 篇笔记
+            </p>
+          </div>
 
-          <div className="flex space-x-2">
-        <button 
+          <div className="flex items-center gap-2">
+            <button
               onClick={handleCreateDoc}
-          className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200/70 bg-white/85 px-3 text-sm font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-900"
               title="新建文档"
             >
               <FilePlusIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">文档</span>
             </button>
             <button
               onClick={handleCreateFolder}
-              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-300"
+              className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-3 text-sm font-medium text-white shadow-lg shadow-slate-950/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-teal-500 dark:text-slate-950 dark:shadow-teal-500/20 dark:hover:bg-teal-400"
               title="新建目录"
             >
               <FolderPlusIcon className="h-4 w-4" />
-        </button>
-      </div>
+              <span className="hidden sm:inline">目录</span>
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div className="flex-1 min-h-0 overflow-auto">
-          {dragNoteId && (
-            <div
-              className={`p-2 text-xs text-center cursor-pointer ${dragOverFolderId === 'root' ? 'bg-blue-100 dark:bg-blue-900' : ''}`}
-              onDragOver={e => { e.preventDefault(); setDragOverFolderId('root'); }}
-              onDrop={handleDropOnRoot}
-              onDragLeave={() => setDragOverFolderId(null)}
-            >
-              拖到这里可放到根目录
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
+        {dragNoteId && (
+          <div
+            className={`mb-3 rounded-2xl border border-dashed px-4 py-3 text-sm text-slate-500 transition-colors dark:text-slate-300 ${
+              dragOverFolderId === 'root'
+                ? 'border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-400/40 dark:bg-teal-500/10 dark:text-teal-200'
+                : 'border-slate-300/80 bg-white/70 dark:border-slate-700 dark:bg-slate-900/50'
+            }`}
+            onDragOver={e => { e.preventDefault(); setDragOverFolderId('root'); }}
+            onDrop={handleDropOnRoot}
+            onDragLeave={() => setDragOverFolderId(null)}
+          >
+            拖到这里可放到根目录
+          </div>
+        )}
+
+        {filteredNotes.length === 0 ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300/80 bg-white/65 px-6 text-center dark:border-slate-700 dark:bg-slate-900/50">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-500/10 text-teal-600 dark:bg-teal-400/10 dark:text-teal-200">
+              <FileText size={28} />
             </div>
-          )}
-          {folders.map(folder => (
-            <div
-              key={folder.id}
-              className={`group border-b dark:border-gray-700 ${dragOverFolderId === folder.id ? 'bg-blue-100 dark:bg-blue-900' : ''}`}
-              onDragOver={e => handleDragOverFolder(folder.id, e)}
-              onDrop={() => handleDropOnFolder(folder.id)}
-              onDragLeave={() => setDragOverFolderId(null)}
-            >
+            <div className="mt-5 text-lg font-semibold text-slate-900 dark:text-white">这里还没有内容</div>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
+              可以先创建文档或目录，再把资料按主题归类，后面检索会更顺手。
+            </p>
+          </div>
+        ) : (
+          <>
+          <div className="space-y-3">
+            {folders.map(folder => (
               <div
-                className="flex items-center px-4 py-2 cursor-pointer select-none"
-                onClick={() => handleFolderClick(folder.id)}
-                onDoubleClick={() => handleFolderDoubleClick(folder)}
-                onContextMenu={(e) => handleNoteRightClick(e, folder)}
+                key={folder.id}
+                className={`overflow-hidden rounded-[24px] border bg-white/78 shadow-sm transition-all dark:bg-slate-900/60 ${
+                  dragOverFolderId === folder.id
+                    ? 'border-teal-300 shadow-lg shadow-teal-500/10 dark:border-teal-400/40'
+                    : 'border-slate-200/70 dark:border-white/10'
+                }`}
+                onDragOver={e => handleDragOverFolder(folder.id, e)}
+                onDrop={() => handleDropOnFolder(folder.id)}
+                onDragLeave={() => setDragOverFolderId(null)}
               >
-                <span className="transition-transform duration-200 mr-1">
-                  {collapsedFolders[folder.id] ? <ChevronRightIcon size={16} /> : <ChevronDownIcon size={16} />}
-                </span>
-                <FolderIcon className="w-4 h-4 mr-2 text-blue-500" />
-                {editingFolderId === folder.id ? (
-                  <input
-                    ref={editFolderInputRef}
-                    value={editingFolderName}
-                    onChange={e => setEditingFolderName(e.target.value)}
-                    onBlur={() => handleFolderNameSave(folder.id)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleFolderNameSave(folder.id);
-                      if (e.key === 'Escape') { setEditingFolderId(null); setEditingFolderName(''); }
-                    }}
-                    className="px-2 py-1 rounded border border-blue-400 outline-none w-28 text-sm"
-                    autoFocus
-                  />
-                ) : (
-                  <span className="font-semibold text-blue-700 dark:text-blue-300 truncate max-w-[120px] inline-block text-sm" title={folder.title}>{folder.title}</span>
-                )}
-                <button
-                  className="ml-auto p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
-                  title="在此目录下新建文档"
-                  onClick={e => {
-                    e.stopPropagation();
-                    const id = createNote({
-                      title: '新文档',
-                      content: '',
-                      categoryId: selectedCategoryId || undefined,
-                      type: 'doc',
-                      parentId: folder.id
-                    });
-                    addTab(id, '新文档');
-                    activateTab(id);
-                  }}
+                <div
+                  className="flex items-center gap-2 px-4 py-3.5"
+                  onClick={() => handleFolderClick(folder.id)}
+                  onDoubleClick={() => handleFolderDoubleClick(folder)}
+                  onContextMenu={(e) => handleNoteRightClick(e, folder)}
                 >
-                  <FilePlusIcon className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    title={collapsedFolders[folder.id] ? '展开目录' : '收起目录'}
+                  >
+                    <span className="transition-transform duration-200">
+                      {collapsedFolders[folder.id] ? <ChevronRightIcon size={16} /> : <ChevronDownIcon size={16} />}
+                    </span>
+                  </button>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-teal-500/10 text-teal-700 dark:bg-teal-400/10 dark:text-teal-200">
+                    <FolderIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    {editingFolderId === folder.id ? (
+                      <input
+                        ref={editFolderInputRef}
+                        value={editingFolderName}
+                        onChange={e => setEditingFolderName(e.target.value)}
+                        onBlur={() => handleFolderNameSave(folder.id)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleFolderNameSave(folder.id);
+                          if (e.key === 'Escape') { setEditingFolderId(null); setEditingFolderName(''); }
+                        }}
+                        className="w-full rounded-xl border border-teal-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none dark:border-teal-400/40 dark:bg-slate-950 dark:text-slate-100"
+                        autoFocus
+                      />
+                    ) : (
+                      <>
+                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100" title={folder.title}>
+                          {folder.title}
+                        </div>
+                        <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {(notesByParent[folder.id] || []).length} 篇文档
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200/70 bg-white/70 text-slate-500 transition-all hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-900"
+                    title="在此目录下新建文档"
+                    onClick={e => {
+                      e.stopPropagation();
+                      const id = createNote({
+                        title: '新文档',
+                        content: '',
+                        categoryId: selectedCategoryId || undefined,
+                        type: 'doc',
+                        parentId: folder.id
+                      });
+                      if (tabs.length >= 10 && tabs[0]) {
+                        window.dispatchEvent(
+                          new CustomEvent('notebook:flush-tab-before-close', {
+                            detail: { noteId: tabs[0].noteId },
+                          }),
+                        )
+                      }
+                      addTab(id, '新文档');
+                      activateTab(id);
+                    }}
+                  >
+                    <FilePlusIcon className="h-4 w-4" />
+                  </button>
+                </div>
+                <div
+                  className={`overflow-hidden px-2 pb-2 transition-all duration-300 ${collapsedFolders[folder.id] ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'}`}
+                  style={{ pointerEvents: collapsedFolders[folder.id] ? 'none' : 'auto' }}
+                >
+                  {(notesByParent[folder.id] || []).map(note => (
+                    <button
+                      key={note.id}
+                      draggable
+                      onDragStart={() => handleDragStart(note.id)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => handleOpenNote(note.id)}
+                      onContextMenu={(e) => handleNoteRightClick(e, note)}
+                      className={`mb-1.5 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm transition-all ${
+                        selectedNoteId === note.id
+                          ? 'bg-teal-50 text-teal-900 shadow-sm ring-1 ring-teal-200 dark:bg-teal-500/10 dark:text-teal-50 dark:ring-teal-400/20'
+                          : 'text-slate-700 hover:bg-slate-100/80 dark:text-slate-200 dark:hover:bg-slate-800/80'
+                      }`}
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        <FileTextIcon className="h-4 w-4 flex-shrink-0" />
+                      </div>
+                      <span className="truncate" title={note.title || '无标题'}>{note.title || '无标题'}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div
-                className={`pl-8 overflow-hidden transition-all duration-300 ${collapsedFolders[folder.id] ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'}`}
-                style={{ pointerEvents: collapsedFolders[folder.id] ? 'none' : 'auto' }}
-              >
-                {(notesByParent[folder.id] || []).map(note => (
+            ))}
+          </div>
+          {rootDocs.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-[24px] border border-slate-200/70 bg-white/78 shadow-sm dark:border-white/10 dark:bg-slate-900/60">
+              <div className="px-4 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                Documents
+              </div>
+              <div className="space-y-1 px-2 pb-2">
+                {rootDocs.map(note => (
                   <button
                     key={note.id}
                     draggable
@@ -665,37 +790,37 @@ function App() {
                     onDragEnd={handleDragEnd}
                     onClick={() => handleOpenNote(note.id)}
                     onContextMenu={(e) => handleNoteRightClick(e, note)}
-                    className={`w-full p-2 text-left flex items-center gap-2 rounded text-sm ${selectedNoteId === note.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm transition-all ${
+                      selectedNoteId === note.id
+                        ? 'bg-teal-50 text-teal-900 shadow-sm ring-1 ring-teal-200 dark:bg-teal-500/10 dark:text-teal-50 dark:ring-teal-400/20'
+                        : 'text-slate-700 hover:bg-slate-100/80 dark:text-slate-200 dark:hover:bg-slate-800/80'
+                    }`}
                   >
-                    <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="truncate max-w-[180px] inline-block" title={note.title || '无标题'}>{note.title || '无标题'}</span>
-                </button>
-              ))}
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      <FileTextIcon className="h-4 w-4 flex-shrink-0" />
+                    </div>
+                    <span className="truncate" title={note.title || '无标题'}>{note.title || '无标题'}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {rootDocs.map(note => (
-              <button
-                key={note.id}
-                draggable
-                onDragStart={() => handleDragStart(note.id)}
-                onDragEnd={handleDragEnd}
-                onClick={() => handleOpenNote(note.id)}
-                onContextMenu={(e) => handleNoteRightClick(e, note)}
-                className={`w-full p-3 text-left flex items-center gap-2 text-sm ${selectedNoteId === note.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-              >
-                <FileTextIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="truncate max-w-[180px] inline-block" title={note.title || '无标题'}>{note.title || '无标题'}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+          )}
+          </>
+        )}
+      </div>
 
-        <div className="w-full aspect-video border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 flex items-center justify-center text-xs text-gray-400">
-          广告位（16:9占位）
+      <div className="border-t border-slate-200/70 p-4 dark:border-white/10">
+        <div className="rounded-[24px] border border-slate-200/70 bg-gradient-to-br from-white to-teal-50/70 p-4 dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900 dark:to-teal-500/5">
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+            <span>整理建议</span>
+            <span>16:9 · {totalDisplayedDocs} / {folders.length}</span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            拖拽笔记到目录里整理结构，右键空白区域可以快速新建内容。
+          </p>
         </div>
       </div>
+    </div>
     );
   };
 
@@ -703,41 +828,43 @@ function App() {
    * 渲染主内容区域（包含标签页和笔记内容）
    */
   const renderNoteContent = () => (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      <TabManager 
-        activeTabId={activeTabId}
-        onTabChange={activateTab}
-        onTabClose={closeTab}
-        onTabCloseAll={closeAllTabs}
-        onTabActivate={handleTabActivate}
-      />
-      <div className="flex-1 overflow-auto">
+    <div className="flex h-full flex-col bg-transparent">
+      <div className="flex h-full min-h-0 flex-col rounded-[28px] border border-white/60 bg-white/72 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/72">
+        <TabManager 
+          activeTabId={activeTabId}
+          onTabChange={activateTab}
+          onTabClose={closeTab}
+          onTabCloseAll={closeAllTabs}
+          onTabActivate={handleTabActivate}
+        />
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
         {!selectedNoteId ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+          <div className="flex h-full flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300/80 bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.12),transparent_45%),rgba(255,255,255,0.8)] px-6 text-center dark:border-slate-700 dark:bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.12),transparent_40%),rgba(2,6,23,0.72)]">
             <div className="mb-6">
-              <span className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-50 dark:bg-blue-900/40 shadow-lg mb-4">
+              <span className="mb-4 inline-flex items-center justify-center rounded-[28px] bg-teal-500/10 p-6 shadow-lg shadow-teal-500/10 dark:bg-teal-400/10 dark:shadow-teal-500/5">
                 <svg width="56" height="56" fill="none" viewBox="0 0 56 56"><rect width="56" height="56" rx="16" fill="#3B82F6" fillOpacity="0.08"/><path d="M16 20a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V20Z" fill="#3B82F6" fillOpacity="0.15"/><rect x="20" y="24" width="16" height="2.5" rx="1.25" fill="#3B82F6"/><rect x="20" y="29" width="10" height="2.5" rx="1.25" fill="#3B82F6"/></svg>
               </span>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold mb-2 text-gray-700 dark:text-gray-200">没有笔记被打开</div>
-              <div className="text-base mb-6 text-gray-500 dark:text-gray-400">请选择左侧的笔记，或新建一篇笔记开始记录。</div>
+              <div className="mb-2 text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">没有笔记被打开</div>
+              <div className="mb-6 text-base text-slate-500 dark:text-slate-400">请选择左侧的笔记，或新建一篇笔记开始记录。</div>
               <button
                 onClick={handleCreateDoc}
-                className="px-6 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-medium shadow transition-colors"
+                className="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-slate-950/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-teal-500 dark:text-slate-950 dark:shadow-teal-500/20 dark:hover:bg-teal-400"
               >
                 + 创建新笔记
               </button>
             </div>
           </div>
         ) : (
-          <div className="h-full">
+          <div className="h-full overflow-hidden rounded-[24px] border border-slate-200/70 bg-white/82 shadow-inner shadow-slate-200/60 dark:border-white/10 dark:bg-slate-950/82 dark:shadow-black/20">
             {(() => {
               const activeTab = tabs.find(tab => tab.id === activeTabId);
               return activeTab ? (<NoteTab noteId={activeTab.noteId} />) : null;
             })()}
           </div>
         )}
+        </div>
       </div>
     </div>
   )
@@ -746,24 +873,32 @@ function App() {
    * 渲染左侧导航栏
    */
   const renderSidebar = () => (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
-      {/* 搜索框 */}
-      <div className="h-9 p-1 border-b border-gray-200 dark:border-gray-700 flex items-center">
-        <div className="relative flex-1">
-          <div className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <Search className="h-3.5 w-3.5" />
+    <div className="flex h-full flex-col bg-transparent">
+      <div className="border-b border-slate-200/70 bg-white/70 px-4 pb-4 pt-4 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/40">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-gradient-to-br from-teal-500 via-cyan-500 to-slate-900 text-sm font-bold text-white shadow-lg shadow-teal-500/20 dark:to-slate-800">
+            M
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">Muse Note</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{notes.length} 项资料正在整理</div>
+          </div>
+        </div>
+
+        <div className="relative mt-4">
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <Search className="h-4 w-4" />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索笔记..."
-            className="w-full pl-8 pr-4 py-1 h-7 bg-gray-100 dark:bg-gray-700 rounded-md border-none dark:text-white text-sm focus:ring-1 focus:ring-blue-500"
+            className="h-11 w-full rounded-2xl border border-slate-200/70 bg-white/85 pl-10 pr-4 text-sm text-slate-700 outline-none transition-all focus:border-teal-300 focus:ring-2 focus:ring-teal-500/15 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-teal-400/40"
           />
         </div>
       </div>
-      {/* 分类列表 */}
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <Sidebar
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={setSelectedCategoryIdWithLogging}
@@ -825,9 +960,9 @@ function App() {
   // 桌面布局渲染
   if (!isMobileView) {
     return (
-      <div className="flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden">
+      <div className="flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(20,184,166,0.16),transparent_28%),linear-gradient(180deg,#f8fbfb_0%,#eef2f7_48%,#e8edf5_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(45,212,191,0.18),transparent_22%),linear-gradient(180deg,#0f172a_0%,#020617_100%)]">
         <div 
-          className="grid h-full w-full" 
+          className="grid h-full w-full gap-3 p-3" 
           style={{ 
             gridTemplateColumns: sidebarOpen
               ? uiMode === 'reminder'
@@ -848,7 +983,7 @@ function App() {
                 minWidth={200}
                 maxWidth={400}
                 direction="left"
-                className="h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-20 overflow-hidden"
+                className="z-20 h-full overflow-hidden rounded-[28px] border border-white/60 bg-white/72 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/76"
               >
                 {renderSidebar()}
               </ResizablePanel>
@@ -862,13 +997,13 @@ function App() {
             minWidth={280}
             maxWidth={500}
             direction="left"
-            className={`${uiMode === 'reminder' ? 'hidden' : 'h-full'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10 overflow-hidden`}
+            className={`${uiMode === 'reminder' ? 'hidden' : 'h-full'} z-10 overflow-hidden rounded-[28px] border border-white/60 bg-white/72 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/76`}
           >
             {uiMode === 'document' ? renderNoteList() : null}
           </ResizablePanel>
           
           {/* 主内容区 (Editor) */}
-          <div className="min-w-0 h-full bg-white dark:bg-gray-800 relative w-full overflow-hidden">
+          <div className="relative h-full min-w-0 w-full overflow-hidden">
             {uiMode === 'document' ? (
               renderNoteContent()
             ) : (
@@ -902,15 +1037,15 @@ function App() {
           visible={contextMenu.visible}
           x={contextMenu.x}
           y={contextMenu.y}
-          items={contextMenu.data?.note ? getContextMenuItems(contextMenu.data.note).map(item => ({
-            ...item,
-            onClick: () => {
-              // 执行具体的业务逻辑
-              handleContextMenuItemClick(item);
-              // 关闭菜单
-              hideContextMenu();
-            }
-          })) : []}
+          items={contextMenu.type === 'note-list'
+            ? getNoteListContextMenuItems()
+            : contextMenu.data?.note ? getContextMenuItems(contextMenu.data.note).map(item => ({
+              ...item,
+              onClick: () => {
+                handleContextMenuItemClick(item);
+                hideContextMenu();
+              }
+            })) : []}
           onClose={hideContextMenu}
         />
       </div>
@@ -919,14 +1054,14 @@ function App() {
   
   // 移动布局渲染
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(20,184,166,0.16),transparent_28%),linear-gradient(180deg,#f8fbfb_0%,#eef2f7_48%,#e8edf5_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(45,212,191,0.18),transparent_22%),linear-gradient(180deg,#0f172a_0%,#020617_100%)]">
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setSidebarOpen(false)}>
+        <div className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}>
           <motion.div
             initial={{ x: -300 }}
             animate={{ x: 0 }}
             exit={{ x: -300 }}
-            className="w-[280px] h-full bg-white dark:bg-gray-800 overflow-hidden"
+            className="h-full w-[300px] overflow-hidden rounded-r-[28px] border-r border-white/60 bg-white/88 shadow-2xl backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/90"
             onClick={e => e.stopPropagation()}
           >
             {renderSidebar()}
@@ -954,8 +1089,10 @@ function App() {
             onEditCard={handleEditReminderCard}
           />
         ) : selectedNoteId ? (
-          <div className="flex-1 overflow-hidden">
-            <NoteTab noteId={selectedNoteId} />
+          <div className="flex-1 overflow-hidden p-2 pb-3">
+            <div className="h-full overflow-hidden rounded-[24px] border border-white/60 bg-white/78 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/82">
+              <NoteTab noteId={selectedNoteId} />
+            </div>
           </div>
         ) : (
           renderNoteList()
@@ -981,13 +1118,15 @@ function App() {
         visible={contextMenu.visible}
         x={contextMenu.x}
         y={contextMenu.y}
-        items={contextMenu.data?.note ? getContextMenuItems(contextMenu.data.note).map(item => ({
-          ...item,
-          onClick: () => {
-            handleContextMenuItemClick(item);
-            hideContextMenu();
-          }
-        })) : []}
+        items={contextMenu.type === 'note-list'
+          ? getNoteListContextMenuItems()
+          : contextMenu.data?.note ? getContextMenuItems(contextMenu.data.note).map(item => ({
+            ...item,
+            onClick: () => {
+              handleContextMenuItemClick(item);
+              hideContextMenu();
+            }
+          })) : []}
         onClose={hideContextMenu}
       />
     </div>

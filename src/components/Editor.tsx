@@ -357,6 +357,24 @@ export default function Editor({ noteId }: EditorProps) {
     await saveNote(true);
   };
 
+  useEffect(() => {
+    const handleFlushBeforeClose = (event: Event) => {
+      const customEvent = event as CustomEvent<{ noteId?: string }>
+      if (!customEvent.detail?.noteId || customEvent.detail.noteId !== noteId) {
+        return
+      }
+
+      saveNote(false).catch((error) => {
+        console.error('关闭标签前保存失败:', error)
+      })
+    }
+
+    window.addEventListener('notebook:flush-tab-before-close', handleFlushBeforeClose as EventListener)
+    return () => {
+      window.removeEventListener('notebook:flush-tab-before-close', handleFlushBeforeClose as EventListener)
+    }
+  }, [noteId, localTitle, localContent, note?.title, note?.content])
+
   // 计算文本统计信息
   const calculateStats = (content: string) => {
     if (!content) {

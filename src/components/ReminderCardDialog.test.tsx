@@ -8,6 +8,19 @@ const categories: Category[] = [
 ]
 
 describe('ReminderCardDialog', () => {
+  it('does not render the helper description under the title', () => {
+    render(
+      <ReminderCardDialog
+        open
+        categories={categories}
+        onOpenChange={() => {}}
+        onSave={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/账号|密码|域名|IP|续费流程/)).not.toBeInTheDocument()
+  })
+
   it('submits title, category, due date, reminderEnabled, and content', () => {
     const onSave = vi.fn()
 

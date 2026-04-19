@@ -4,7 +4,6 @@ import type { Note } from '@stores/noteStore'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -74,15 +73,15 @@ export function ReminderCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden border-0 bg-white/95 p-0 shadow-2xl shadow-slate-900/30 sm:max-w-2xl dark:bg-slate-950/95">
+      <DialogContent
+        aria-describedby={undefined}
+        className="overflow-hidden border-0 bg-white/95 p-0 shadow-2xl shadow-slate-900/30 sm:max-w-2xl dark:bg-slate-950/95"
+      >
         <div className="bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-6 py-5 text-white">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold tracking-tight">
               {note ? '编辑提醒卡片' : '新建提醒卡片'}
             </DialogTitle>
-            <DialogDescription className="text-sm text-blue-50/90">
-              把账号、密码、域名、IP、续费流程等都写进备注里，保持字段尽量简洁。
-            </DialogDescription>
           </DialogHeader>
         </div>
 
@@ -115,7 +114,7 @@ export function ReminderCardDialog({
             </label>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-[1fr,220px]">
+          <div className="grid gap-5 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
               到期日期
               <Input
@@ -127,10 +126,10 @@ export function ReminderCardDialog({
               />
             </label>
 
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-              <div>
-                <div>启用提醒</div>
-                <div className="mt-1 text-xs font-normal text-slate-500 dark:text-slate-400">
+            <label className="flex min-h-[108px] items-start justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+              <div className="pr-4">
+                <div className="text-base font-semibold">启用提醒</div>
+                <div className="mt-2 text-xs font-normal leading-6 text-slate-500 dark:text-slate-400">
                   默认按 30 天 / 7 天 / 当天触发
                 </div>
               </div>
@@ -139,7 +138,7 @@ export function ReminderCardDialog({
                 type="checkbox"
                 checked={values.reminderEnabled}
                 onChange={(event) => updateField('reminderEnabled', event.target.checked)}
-                className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
             </label>
           </div>

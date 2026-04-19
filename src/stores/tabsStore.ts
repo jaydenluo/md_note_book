@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+const MAX_OPEN_TABS = 10
+
 export interface Tab {
   id: string;
   noteId: string;
@@ -43,7 +45,7 @@ export const useTabs = create<TabsState>()(
           };
           
           set(state => ({ 
-            tabs: [...state.tabs, newTab],
+            tabs: [...state.tabs, newTab].slice(-MAX_OPEN_TABS),
             activeTabId: newTab.id
           }));
           
