@@ -1,34 +1,93 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Editor } from '@tiptap/core'
+import { openLink } from '@utils/tauri'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from './context-menu'
+import { LinkDialog } from './link-dialog'
 
 interface EditorContextMenuProps {
   editor: Editor
   children: React.ReactNode
 }
 
+interface LinkContext {
+  href: string
+  text: string
+}
+
 export const EditorContextMenu: React.FC<EditorContextMenuProps> = ({
   editor,
   children,
 }) => {
-  // 处理复制
+  const [showLinkDialog, setShowLinkDialog] = useState(false)
+  const [linkContext, setLinkContext] = useState<LinkContext | null>(null)
+
+  const getLinkElement = (target: EventTarget | null): HTMLAnchorElement | null => {
+    if (!(target instanceof HTMLElement)) return null
+    return target.closest('a[href]')
+  }
+
+  const selectLinkRange = (linkElement: HTMLAnchorElement) => {
+    const startNode = linkElement.firstChild ?? linkElement
+    const endOffset =
+      startNode.nodeType === Node.TEXT_NODE
+        ? startNode.textContent?.length ?? 0
+        : linkElement.childNodes.length
+
+    const from = editor.view.posAtDOM(startNode, 0)
+    const to = editor.view.posAtDOM(startNode, endOffset)
+
+    editor
+      .chain()
+      .focus()
+      .setTextSelection({ from, to })
+      .extendMarkRange('link')
+      .run()
+  }
+
+  const handleContextMenuCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    const linkElement = getLinkElement(event.target)
+
+    if (!linkElement) {
+      setLinkContext(null)
+      return
+    }
+
+    setLinkContext({
+      href: linkElement.getAttribute('href') || linkElement.href,
+      text: linkElement.textContent || '',
+    })
+
+    selectLinkRange(linkElement)
+  }
+
+  const handleClickCapture = async (event: React.MouseEvent<HTMLDivElement>) => {
+    const linkElement = getLinkElement(event.target)
+    if (!linkElement) return
+
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      event.stopPropagation()
+      await openLink(linkElement.getAttribute('href') || linkElement.href)
+    }
+  }
+
   const handleCopy = async () => {
     if (!editor.state.selection.empty) {
       const text = editor.state.doc.textBetween(
         editor.state.selection.from,
         editor.state.selection.to,
-        ' '
+        ' ',
       )
       await navigator.clipboard.writeText(text)
     }
   }
 
-  // 处理粘贴
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
@@ -38,30 +97,26 @@ export const EditorContextMenu: React.FC<EditorContextMenuProps> = ({
     }
   }
 
-  // 处理粘贴为纯文本
   const handlePasteAsText = async () => {
     try {
       const text = await navigator.clipboard.readText()
-      // 移除所有HTML标签，保留换行符，但清除空行
       const plainText = text
-        .replace(/<[^>]*>/g, '') // 移除HTML标签
-        .replace(/\r\n/g, '\n') // 统一换行符
-        .replace(/\r/g, '\n') // 统一换行符
-        .split('\n') // 分割成行
-        .filter(line => line.trim() !== '') // 移除空行
-        .join('\n') // 重新组合，保留换行符
-      
-      // 如果最后一个字符不是换行符，不添加额外的换行符
-      const finalText = plainText.endsWith('\n') ? plainText : plainText + '\n'
-      
-      // 使用 insertContent 插入处理后的文本
+        .replace(/<[^>]*>/g, '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .filter((line) => line.trim() !== '')
+        .join('\n')
+
+      const finalText = plainText.endsWith('\n') ? plainText : `${plainText}\n`
+
       editor
         .chain()
         .focus()
         .insertContent(finalText, {
           parseOptions: {
-            preserveWhitespace: true // 保留换行符
-          }
+            preserveWhitespace: true,
+          },
         })
         .run()
     } catch (error) {
@@ -69,35 +124,68 @@ export const EditorContextMenu: React.FC<EditorContextMenuProps> = ({
     }
   }
 
+  const handleOpenCurrentLink = async () => {
+    if (!linkContext?.href) return
+    await openLink(linkContext.href)
+  }
+
+  const handleEditCurrentLink = () => {
+    if (!linkContext) return
+    setShowLinkDialog(true)
+  }
+
+  const handleCopyCurrentLink = async () => {
+    if (!linkContext?.href) return
+    await navigator.clipboard.writeText(linkContext.href)
+  }
+
+  const handleDeleteCurrentLink = () => {
+    if (!linkContext) return
+    editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    setLinkContext(null)
+  }
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        {children}
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        <ContextMenuItem
-          disabled={editor.state.selection.empty}
-          onClick={handleCopy}
-          className="flex items-center"
-        >
-          <span>复制</span>
-          <span className="ml-auto text-xs text-muted-foreground">⌘C</span>
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={handlePaste}
-          className="flex items-center"
-        >
-          <span>粘贴</span>
-          <span className="ml-auto text-xs text-muted-foreground">⌘V</span>
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={handlePasteAsText}
-          className="flex items-center"
-        >
-          <span>粘贴为纯文本</span>
-          <span className="ml-auto text-xs text-muted-foreground">⇧⌘V</span>
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div onContextMenuCapture={handleContextMenuCapture} onClickCapture={handleClickCapture}>
+            {children}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          {linkContext ? (
+            <>
+              <ContextMenuItem onClick={handleOpenCurrentLink}>打开链接</ContextMenuItem>
+              <ContextMenuItem onClick={handleEditCurrentLink}>编辑链接</ContextMenuItem>
+              <ContextMenuItem onClick={handleCopyCurrentLink}>复制链接</ContextMenuItem>
+              <ContextMenuItem onClick={handleDeleteCurrentLink}>删除链接</ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          ) : null}
+          <ContextMenuItem
+            disabled={editor.state.selection.empty}
+            onClick={handleCopy}
+            className="flex items-center"
+          >
+            <span>复制</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘C</span>
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handlePaste} className="flex items-center">
+            <span>粘贴</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘V</span>
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handlePasteAsText} className="flex items-center">
+            <span>粘贴为纯文本</span>
+            <span className="ml-auto text-xs text-muted-foreground">⇧⌘V</span>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <LinkDialog
+        editor={editor}
+        isOpen={showLinkDialog}
+        onClose={() => setShowLinkDialog(false)}
+      />
+    </>
   )
-} 
+}

@@ -7,14 +7,19 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  color-scheme: light;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 html, body, #root {
@@ -32,6 +37,24 @@ html {
 
 body {
   min-width: 320px;
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 28%),
+    linear-gradient(180deg, #f8fbfb 0%, #eef2f7 48%, #e8edf5 100%);
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.16), transparent 24%),
+    linear-gradient(180deg, #0f172a 0%, #020617 100%);
+}
+
+#root {
+  isolation: isolate;
+}
+
+::selection {
+  background: rgba(20, 184, 166, 0.22);
+  color: inherit;
 }
 
 /* 兼容不支持 scrollbar-gutter 的浏览器 */
@@ -72,12 +95,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #b8c3d1;
   border-radius: 4px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: #475569;
 }
 
 /* 动画类 */

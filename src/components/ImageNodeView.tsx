@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NodeViewWrapper, NodeViewProps } from '@tiptap/react';
 import ImageToolbar from './ImageToolbar';
+import { getResponsiveImageStyle } from '@utils/imageSizing';
 
 // 节流函数
 const throttle = <T extends (...args: unknown[]) => void>(
@@ -58,6 +59,8 @@ const ImageNodeView: React.FC<NodeViewProps> = ({
     shadow = true,
     caption = ''
   } = safeNode.attrs;
+  const intrinsicWidth = Number(safeNode.attrs['data-image-width']) || 0;
+  const intrinsicHeight = Number(safeNode.attrs['data-image-height']) || 0;
 
   // 初始化本地caption
   useEffect(() => {
@@ -140,7 +143,8 @@ const ImageNodeView: React.FC<NodeViewProps> = ({
     if (width && height) {
       return {
         width: `${width}px`,
-        height: `${height}px`
+        height: 'auto',
+        aspectRatio: `${width} / ${height}`
       };
     }
     
@@ -158,7 +162,8 @@ const ImageNodeView: React.FC<NodeViewProps> = ({
       const ratio = originalSize.height / originalSize.width;
       return {
         width: `${presetWidth}px`,
-        height: `${Math.round(presetWidth * ratio)}px`
+        height: 'auto',
+        aspectRatio: `${originalSize.width} / ${originalSize.height}`
       };
     }
 
@@ -196,8 +201,6 @@ const ImageNodeView: React.FC<NodeViewProps> = ({
       setCurrentSize({ width: initialWidth, height: initialHeight });
       
       // 设置初始尺寸
-      imageRef.current.style.width = `${initialWidth}px`;
-      imageRef.current.style.height = `${initialHeight}px`;
     }
   };
 

@@ -14,12 +14,13 @@
 /* 图片基础样式 */
 .editor-image {
   max-width: 100%;
-  height: auto;
+  height: auto !important;
   display: block;
   transition: all 0.3s ease;
   border-radius: 4px;
   margin: 0;
   box-sizing: border-box;
+  object-fit: contain;
 }
 
 /* 图片错误占位符 */

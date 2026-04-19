@@ -25,7 +25,8 @@
       "@hooks/*": ["src/hooks/*"],
       "@services/*": ["src/services/*"],
       "@styles/*": ["src/styles/*"],
-      "@docs/*": ["@docs/*"]
+      "@docs/*": ["@docs/*"],
+      "@test/*": ["src/test/*"]
   },
     "types": [
       "@tauri-apps/api",
